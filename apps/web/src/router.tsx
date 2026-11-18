@@ -71,7 +71,9 @@ const appRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: 'app',
   component: AppShell,
-  beforeLoad: async ({ context, location }) => {
+  // A loader (not beforeLoad) so the profile check runs in parallel with the screens' own
+  // data loaders — the task list doesn't wait for it. The API enforces sign-in on every call anyway.
+  loader: async ({ context, location }) => {
     try {
       await context.queryClient.ensureQueryData(meQuery);
     } catch (err) {
