@@ -24,7 +24,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'prompt',
       injectRegister: false,
-      includeAssets: ['icons/*.png', 'icons/favicon.svg', 'theme-init.js'],
+      includeAssets: ['icons/*.png', 'icons/favicon.svg', 'boot.js'],
       manifest: {
         id: '/',
         name: 'ToDo',

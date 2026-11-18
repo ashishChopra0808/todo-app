@@ -16,6 +16,16 @@ export class ApiError extends Error {
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 
+/** Responses already requested by public/boot.js during page load; each is used once. */
+function takeEarly(path: string): Promise<Response> | undefined {
+  const w = window as { __todoEarly?: Record<string, Promise<Response>>; __todoEarlyAt?: number };
+  const res = w.__todoEarly?.[path];
+  if (!res) return undefined;
+  delete w.__todoEarly![path];
+  // Only for the first screen: never hand out a response from much earlier.
+  return Date.now() - (w.__todoEarlyAt ?? 0) < 15_000 ? res : undefined;
+}
+
 /**
  * Same-origin JSON client. Cookies are HttpOnly and sent automatically; the API sits at /api
  * on the same origin (Vite proxy in dev, Cloudflare Pages proxy in staging/production).
@@ -29,16 +39,19 @@ export async function api<T>(
   const isForm = body instanceof FormData;
   let res: Response;
   try {
-    res = await fetch(path, {
-      method,
-      credentials: 'same-origin',
-      headers: {
-        Accept: 'application/json',
-        ...(body !== undefined && !isForm ? { 'Content-Type': 'application/json' } : {}),
-      },
-      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
-      ...init,
-    });
+    const early = method === 'GET' ? takeEarly(path) : undefined;
+    res = early
+      ? await early
+      : await fetch(path, {
+          method,
+          credentials: 'same-origin',
+          headers: {
+            Accept: 'application/json',
+            ...(body !== undefined && !isForm ? { 'Content-Type': 'application/json' } : {}),
+          },
+          body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
+          ...init,
+        });
   } catch {
     throw new ApiError(0, 'network', 'Network error');
   }
