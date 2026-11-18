@@ -21,13 +21,28 @@ for (const r of manifest.filter((x) => x.isRepresentativeRun)) {
   lines.push(
     `| ${page} | ${pct(s.performance)} | ${pct(s.accessibility)} | ${pct(s['best-practices'])} | ${v('first-contentful-paint')} | ${v('largest-contentful-paint')} | ${v('total-blocking-time')} | ${v('cumulative-layout-shift')} |`,
   );
-  const lcp = a['largest-contentful-paint-element']?.details?.items?.[0]?.items?.[0]?.node?.snippet;
-  const shifts = (a['layout-shifts']?.details?.items ?? [])
+  // Audit ids differ between Lighthouse versions, so search every LCP-related audit for the element.
+  const firstSnippet = (node) => {
+    if (!node || typeof node !== 'object') return undefined;
+    if (typeof node.snippet === 'string') return node.snippet;
+    for (const value of Object.values(node)) {
+      const found = firstSnippet(value);
+      if (found) return found;
+    }
+    return undefined;
+  };
+  const lcpAudits = Object.keys(a).filter((id) => /lcp|largest-contentful-paint-element/.test(id));
+  const lcp = lcpAudits.map((id) => firstSnippet(a[id]?.details)).find(Boolean);
+  const breakdown = lcpAudits
+    .map((id) => JSON.stringify(a[id]?.details?.items ?? []).slice(0, 400))
+    .join(' ');
+  const scripts = (a['bootup-time']?.details?.items ?? [])
     .slice(0, 3)
-    .map((i) => `${i.node?.snippet ?? '?'} (${i.score?.toFixed?.(3)})`);
+    .map((i) => `${String(i.url).split('/').pop()} ${Math.round(i.total)}ms`);
   details.push(
-    `- ${page}: LCP element ${lcp ?? '–'}${shifts.length ? `; layout shifts: ${shifts.join(', ')}` : ''}`,
+    `- ${page}: LCP element ${lcp ?? '–'} | audits ${lcpAudits.join(', ')} | script time ${scripts.join(', ')}`,
   );
+  if (page === '/tasks') details.push(`  - LCP details: ${breakdown}`);
 }
 const md = [...lines, '', ...details, ''].join('\n');
 console.log(md);
