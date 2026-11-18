@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { isOverdue } from '@todo/shared';
-import { useMe, useTaskList } from '../api/queries';
+import { TODAY_PARAMS, useMe, useTaskList } from '../api/queries';
 import { Avatar } from '../components/Avatar';
 import { Workspace } from '../components/Workspace';
 import { EmptyState, ErrorState, LoadingList } from '../components/States';
@@ -14,7 +14,7 @@ export function TodayPage() {
   const { t } = useTranslation();
   const me = useMe();
   const tz = me.data?.timeZone ?? 'Asia/Kolkata';
-  const list = useTaskList({ view: 'today', limit: 100 });
+  const list = useTaskList(TODAY_PARAMS);
   const items = list.data?.items ?? [];
   const overdue = items.filter((x) => isOverdue(x, tz));
   const dueToday = items.filter((x) => !isOverdue(x, tz) && x.status !== 'done');

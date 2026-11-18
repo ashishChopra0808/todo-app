@@ -1,5 +1,7 @@
 import {
+  infiniteQueryOptions,
   keepPreviousData,
+  queryOptions,
   useMutation,
   useQuery,
   useQueryClient,
@@ -62,12 +64,32 @@ export interface ListParams {
   cursor?: string;
 }
 
-export function useTaskList(params: ListParams) {
-  return useQuery({
+/** Shared by the screen and its route loader, so the list starts downloading in parallel with the screen's code. */
+export const taskListOptions = (params: ListParams) =>
+  queryOptions({
     queryKey: keys.list(params as unknown as Record<string, unknown>),
     queryFn: () => get<TaskListResponse>(`/api/v1/tasks?${toQueryString({ ...params })}`),
     placeholderData: keepPreviousData,
   });
+
+export const taskPagesOptions = (params: Omit<ListParams, 'cursor'>) =>
+  infiniteQueryOptions({
+    queryKey: keys.list({ ...params, infinite: true }),
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) =>
+      get<TaskListResponse>(`/api/v1/tasks?${toQueryString({ ...params, cursor: pageParam })}`),
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+  });
+
+export const countsOptions = queryOptions({
+  queryKey: keys.counts,
+  queryFn: () => get<TaskCountsDto>('/api/v1/tasks/counts'),
+});
+
+export const TODAY_PARAMS: ListParams = { view: 'today', limit: 100 };
+
+export function useTaskList(params: ListParams) {
+  return useQuery(taskListOptions(params));
 }
 
 export function useTaskCounts() {

@@ -8,11 +8,18 @@ import {
   redirect,
 } from '@tanstack/react-router';
 import { ApiError } from './api/client';
-import { meQuery } from './api/queries';
+import {
+  TODAY_PARAMS,
+  countsOptions,
+  meQuery,
+  taskListOptions,
+  taskPagesOptions,
+} from './api/queries';
 import { AppShell } from './components/AppShell';
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { ErrorPage, NotFoundPage } from './routes/misc';
-import type { TasksSearch } from './routes/tasks';
+import type { TasksSearch } from './routes/tasks-params';
+import { tasksParams } from './routes/tasks-params';
 
 // Each screen is its own chunk, loaded on first visit (and preloaded on hover/touch of a link).
 const auth = () => import('./routes/auth');
@@ -145,6 +152,11 @@ const today = createRoute({
   getParentRoute: () => appRoute,
   path: '/today',
   validateSearch: (s: Record<string, unknown>): { task?: string } => ({ task: str(s.task) }),
+  // Start fetching while the screen's code downloads (not awaited, so navigation is instant).
+  loader: ({ context }) => {
+    void context.queryClient.prefetchQuery(taskListOptions(TODAY_PARAMS));
+    void context.queryClient.prefetchQuery(countsOptions);
+  },
   component: TodayPage,
 });
 const tasks = createRoute({
@@ -160,6 +172,14 @@ const tasks = createRoute({
     focus: str(s.focus),
     task: str(s.task),
   }),
+  loaderDeps: ({ search }) => ({ search }),
+  loader: ({ context, deps }) => {
+    const p = tasksParams(deps.search);
+    void context.queryClient.prefetchInfiniteQuery(
+      taskPagesOptions({ ...p, status: [...p.status], priority: [...p.priority] }),
+    );
+    void context.queryClient.prefetchQuery(countsOptions);
+  },
   component: TasksPage,
 });
 const newTask = createRoute({

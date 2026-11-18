@@ -2,27 +2,16 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { TASK_PRIORITIES, TASK_STATUSES, type TaskListResponse } from '@todo/shared';
-import { get } from '../api/client';
-import { keys, toQueryString, useMe } from '../api/queries';
+import { TASK_PRIORITIES, TASK_STATUSES } from '@todo/shared';
+import { taskPagesOptions, useMe } from '../api/queries';
 import { Icon } from '../components/Icon';
 import { Workspace } from '../components/Workspace';
 import { EmptyState, ErrorState, LoadingList, Spinner } from '../components/States';
 import { TaskRow } from '../components/TaskBits';
 import { errorMessage } from '../lib/errors';
+import { splitCsv, tasksParams, type TasksSearch } from './tasks-params';
 
-export interface TasksSearch {
-  tab?: 'mine' | 'overdue' | 'completed';
-  q?: string;
-  status?: string;
-  priority?: string;
-  dueFrom?: string;
-  dueTo?: string;
-  focus?: string;
-  task?: string;
-}
-
-const splitCsv = (v?: string) => (v ? v.split(',').filter(Boolean) : []);
+export type { TasksSearch } from './tasks-params';
 
 export function TasksPage() {
   const { t } = useTranslation();
@@ -53,24 +42,11 @@ export function TasksPage() {
     return () => clearTimeout(h);
   }, [q, search.q, navigate]);
 
-  const status = splitCsv(search.status);
-  const priority = splitCsv(search.priority);
-  const params = {
-    view: tab,
-    q: search.q,
-    status,
-    priority,
-    dueFrom: search.dueFrom,
-    dueTo: search.dueTo,
-    limit: 30,
-  };
-  const list = useInfiniteQuery({
-    queryKey: keys.list({ ...params, infinite: true }),
-    initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam }) =>
-      get<TaskListResponse>(`/api/v1/tasks?${toQueryString({ ...params, cursor: pageParam })}`),
-    getNextPageParam: (last) => last.nextCursor ?? undefined,
-  });
+  const params = tasksParams(search);
+  const { status, priority } = params;
+  const list = useInfiniteQuery(
+    taskPagesOptions({ ...params, status: [...status], priority: [...priority] }),
+  );
   const items = list.data?.pages.flatMap((p) => p.items) ?? [];
   const activeFilters = [
     status.length,
