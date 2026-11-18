@@ -57,7 +57,10 @@ pnpm test:e2e      # Playwright on phone + desktop viewports, with axe accessibi
   own API against `E2E_DATABASE_URL` (default database `todo_e2e`). First run:
   `pnpm --filter @todo/web exec playwright install chromium` (or set `PW_CHANNEL=chrome` to use an installed Chrome).
 
-CI (GitHub Actions) runs all of the above on every push, plus a Docker build of the API.
+CI (GitHub Actions) runs all of the above on every push, plus a Docker build of the API and a
+Lighthouse run (mobile) on sign-in, Today and Tasks against the production build with a signed-in
+demo user. Accessibility (≥ 95) and best practices (≥ 90) fail the build; performance below 90 is a
+warning, because CI machines vary. Scores appear in the run's job summary.
 
 ## Environments
 
