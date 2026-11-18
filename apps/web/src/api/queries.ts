@@ -3,6 +3,7 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  type InfiniteData,
   type QueryClient,
 } from '@tanstack/react-query';
 import type {
@@ -91,11 +92,21 @@ export function useActivity(id: string) {
   });
 }
 
+type ListCache = TaskListResponse | InfiniteData<TaskListResponse, string | undefined>;
+
+/** Applies a change to every cached task list — plain (Today) and paged (Tasks) alike. */
+function updateLists(qc: QueryClient, fn: (items: TaskDto[]) => TaskDto[]) {
+  qc.setQueriesData<ListCache>({ queryKey: ['tasks', 'list'] }, (old) => {
+    if (!old) return old;
+    if ('pages' in old)
+      return { ...old, pages: old.pages.map((p) => ({ ...p, items: fn(p.items) })) };
+    return { ...old, items: fn(old.items) };
+  });
+}
+
 function patchTaskInCaches(qc: QueryClient, next: TaskDto) {
   qc.setQueryData(keys.task(next.id), next);
-  qc.setQueriesData<TaskListResponse>({ queryKey: ['tasks', 'list'] }, (old) =>
-    old ? { ...old, items: old.items.map((t) => (t.id === next.id ? next : t)) } : old,
-  );
+  updateLists(qc, (items) => items.map((t) => (t.id === next.id ? next : t)));
 }
 
 export function useCreateTask() {
@@ -166,9 +177,7 @@ export function useDeleteTask() {
     mutationFn: (id: string) => del<void>(`/api/v1/tasks/${id}`),
     onSuccess: (_r, id) => {
       qc.removeQueries({ queryKey: keys.task(id) });
-      qc.setQueriesData<TaskListResponse>({ queryKey: ['tasks', 'list'] }, (old) =>
-        old ? { ...old, items: old.items.filter((t) => t.id !== id) } : old,
-      );
+      updateLists(qc, (items) => items.filter((t) => t.id !== id));
       void qc.invalidateQueries({ queryKey: keys.tasks });
     },
   });

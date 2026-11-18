@@ -141,7 +141,12 @@ const legal = createRoute({
   component: LegalPage,
 });
 
-const today = createRoute({ getParentRoute: () => appRoute, path: '/today', component: TodayPage });
+const today = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/today',
+  validateSearch: (s: Record<string, unknown>): { task?: string } => ({ task: str(s.task) }),
+  component: TodayPage,
+});
 const tasks = createRoute({
   getParentRoute: () => appRoute,
   path: '/tasks',
@@ -153,6 +158,7 @@ const tasks = createRoute({
     dueFrom: str(s.dueFrom),
     dueTo: str(s.dueTo),
     focus: str(s.focus),
+    task: str(s.task),
   }),
   component: TasksPage,
 });

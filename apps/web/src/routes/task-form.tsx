@@ -18,6 +18,7 @@ import { ErrorState, LoadingList, Spinner } from '../components/States';
 import { useToast } from '../components/Toasts';
 import { errorMessage, fieldErrors } from '../lib/errors';
 import { addDaysIso } from '../lib/format';
+import { WIDE_QUERY, useMediaQuery } from '../lib/useMediaQuery';
 
 type When = 'none' | 'today' | 'tomorrow' | 'weekend' | 'pick';
 
@@ -294,7 +295,12 @@ export function EditTaskPage() {
   const toast = useToast();
   const { id } = useParams({ strict: false }) as { id: string };
   const task = useTask(id);
-  const toDetail = () => void navigate({ to: '/tasks/$id', params: { id }, replace: true });
+  const wide = useMediaQuery(WIDE_QUERY);
+  // Desktop: back to the list with the task open in the side panel. Phones: back to the task page.
+  const toDetail = () =>
+    void (wide
+      ? navigate({ to: '/tasks', search: { task: id }, replace: true })
+      : navigate({ to: '/tasks/$id', params: { id }, replace: true }));
   return (
     <main id="main" className="page" style={{ paddingBlockEnd: 32 }}>
       <FormHeader title={t('task.editTitle')} cancelTo={toDetail} />

@@ -6,6 +6,7 @@ import { TASK_PRIORITIES, TASK_STATUSES, type TaskListResponse } from '@todo/sha
 import { get } from '../api/client';
 import { keys, toQueryString, useMe } from '../api/queries';
 import { Icon } from '../components/Icon';
+import { Workspace } from '../components/Workspace';
 import { EmptyState, ErrorState, LoadingList, Spinner } from '../components/States';
 import { TaskRow } from '../components/TaskBits';
 import { errorMessage } from '../lib/errors';
@@ -18,6 +19,7 @@ export interface TasksSearch {
   dueFrom?: string;
   dueTo?: string;
   focus?: string;
+  task?: string;
 }
 
 const splitCsv = (v?: string) => (v ? v.split(',').filter(Boolean) : []);
@@ -94,179 +96,184 @@ export function TasksPage() {
   ] as const;
 
   return (
-    <main id="main" className="page">
-      <header className="page-header">
-        <h1 className="screen-title">{t('tasks.title')}</h1>
-      </header>
+    <Workspace>
+      <main id="main" className="page">
+        <header className="page-header">
+          <h1 className="screen-title">{t('tasks.title')}</h1>
+        </header>
 
-      <nav aria-label={t('tasks.tabs.label')} className="tabs">
-        {tabs.map((x) => (
-          <Link
-            key={x.id}
-            to="/tasks"
-            search={(s: TasksSearch) => ({ ...s, tab: x.id === 'mine' ? undefined : x.id })}
-            className="tab"
-            aria-current={tab === x.id ? 'page' : undefined}
-          >
-            {x.label}
-          </Link>
-        ))}
-      </nav>
+        <nav aria-label={t('tasks.tabs.label')} className="tabs">
+          {tabs.map((x) => (
+            <Link
+              key={x.id}
+              to="/tasks"
+              search={(s: TasksSearch) => ({ ...s, tab: x.id === 'mine' ? undefined : x.id })}
+              className="tab"
+              aria-current={tab === x.id ? 'page' : undefined}
+            >
+              {x.label}
+            </Link>
+          ))}
+        </nav>
 
-      <div className="stack">
-        <div className="search" role="search">
-          <label htmlFor="task-search" className="visually-hidden">
-            {t('tasks.search.label')}
-          </label>
-          <Icon name="search" size={20} />
-          <input
-            id="task-search"
-            ref={searchRef}
-            type="search"
-            className="input"
-            placeholder={t('tasks.search.placeholder')}
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            maxLength={100}
-            enterKeyHint="search"
-          />
-        </div>
-        <div className="row" style={{ justifyContent: 'space-between' }}>
-          <button
-            type="button"
-            className="btn btn--ghost btn--small"
-            aria-expanded={showFilters}
-            aria-controls="filters"
-            onClick={() => setShowFilters((v) => !v)}
-          >
-            <Icon name="filter" size={18} />
-            {activeFilters
-              ? t('tasks.filters.active', { count: activeFilters })
-              : t('tasks.filters.toggle')}
-          </button>
-          {activeFilters > 0 && (
+        <div className="stack">
+          <div className="search" role="search">
+            <label htmlFor="task-search" className="visually-hidden">
+              {t('tasks.search.label')}
+            </label>
+            <Icon name="search" size={20} />
+            <input
+              id="task-search"
+              ref={searchRef}
+              type="search"
+              className="input"
+              placeholder={t('tasks.search.placeholder')}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              maxLength={100}
+              enterKeyHint="search"
+            />
+          </div>
+          <div className="row" style={{ justifyContent: 'space-between' }}>
             <button
               type="button"
               className="btn btn--ghost btn--small"
-              onClick={() =>
-                void navigate({
-                  search: (s: TasksSearch) => ({ tab: s.tab, q: s.q }),
-                  replace: true,
-                })
-              }
+              aria-expanded={showFilters}
+              aria-controls="filters"
+              onClick={() => setShowFilters((v) => !v)}
             >
-              {t('tasks.filters.clear')}
+              <Icon name="filter" size={18} />
+              {activeFilters
+                ? t('tasks.filters.active', { count: activeFilters })
+                : t('tasks.filters.toggle')}
             </button>
-          )}
-        </div>
-        {showFilters && (
-          <div id="filters" className="card filters">
-            {tab === 'mine' && (
+            {activeFilters > 0 && (
+              <button
+                type="button"
+                className="btn btn--ghost btn--small"
+                onClick={() =>
+                  void navigate({
+                    search: (s: TasksSearch) => ({ tab: s.tab, q: s.q }),
+                    replace: true,
+                  })
+                }
+              >
+                {t('tasks.filters.clear')}
+              </button>
+            )}
+          </div>
+          {showFilters && (
+            <div id="filters" className="card filters">
+              {tab === 'mine' && (
+                <fieldset className="fieldset">
+                  <legend className="section-title">{t('tasks.filters.status')}</legend>
+                  <div className="chips">
+                    {TASK_STATUSES.map((s) => (
+                      <label key={s} className="chip">
+                        <input
+                          type="checkbox"
+                          checked={status.includes(s)}
+                          onChange={() => toggleIn('status', s)}
+                        />
+                        <span>{t(`task.status.${s}`)}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              )}
               <fieldset className="fieldset">
-                <legend className="section-title">{t('tasks.filters.status')}</legend>
+                <legend className="section-title">{t('tasks.filters.priority')}</legend>
                 <div className="chips">
-                  {TASK_STATUSES.map((s) => (
-                    <label key={s} className="chip">
+                  {TASK_PRIORITIES.map((p) => (
+                    <label key={p} className="chip">
                       <input
                         type="checkbox"
-                        checked={status.includes(s)}
-                        onChange={() => toggleIn('status', s)}
+                        checked={priority.includes(p)}
+                        onChange={() => toggleIn('priority', p)}
                       />
-                      <span>{t(`task.status.${s}`)}</span>
+                      <span>
+                        <span className={`dot dot--${p}`} aria-hidden="true" />
+                        {t(`task.priority.${p}`)}
+                      </span>
                     </label>
                   ))}
                 </div>
               </fieldset>
-            )}
-            <fieldset className="fieldset">
-              <legend className="section-title">{t('tasks.filters.priority')}</legend>
-              <div className="chips">
-                {TASK_PRIORITIES.map((p) => (
-                  <label key={p} className="chip">
-                    <input
-                      type="checkbox"
-                      checked={priority.includes(p)}
-                      onChange={() => toggleIn('priority', p)}
-                    />
-                    <span>
-                      <span className={`dot dot--${p}`} aria-hidden="true" />
-                      {t(`task.priority.${p}`)}
-                    </span>
+              <div className="filters__dates">
+                <div className="field">
+                  <label className="field__label" htmlFor="due-from">
+                    {t('tasks.filters.dueFrom')}
                   </label>
-                ))}
-              </div>
-            </fieldset>
-            <div className="filters__dates">
-              <div className="field">
-                <label className="field__label" htmlFor="due-from">
-                  {t('tasks.filters.dueFrom')}
-                </label>
-                <input
-                  id="due-from"
-                  type="date"
-                  className="input"
-                  value={search.dueFrom ?? ''}
-                  onChange={(e) =>
-                    void navigate({
-                      search: (s: TasksSearch) => ({ ...s, dueFrom: e.target.value || undefined }),
-                      replace: true,
-                    })
-                  }
-                />
-              </div>
-              <div className="field">
-                <label className="field__label" htmlFor="due-to">
-                  {t('tasks.filters.dueTo')}
-                </label>
-                <input
-                  id="due-to"
-                  type="date"
-                  className="input"
-                  value={search.dueTo ?? ''}
-                  onChange={(e) =>
-                    void navigate({
-                      search: (s: TasksSearch) => ({ ...s, dueTo: e.target.value || undefined }),
-                      replace: true,
-                    })
-                  }
-                />
+                  <input
+                    id="due-from"
+                    type="date"
+                    className="input"
+                    value={search.dueFrom ?? ''}
+                    onChange={(e) =>
+                      void navigate({
+                        search: (s: TasksSearch) => ({
+                          ...s,
+                          dueFrom: e.target.value || undefined,
+                        }),
+                        replace: true,
+                      })
+                    }
+                  />
+                </div>
+                <div className="field">
+                  <label className="field__label" htmlFor="due-to">
+                    {t('tasks.filters.dueTo')}
+                  </label>
+                  <input
+                    id="due-to"
+                    type="date"
+                    className="input"
+                    value={search.dueTo ?? ''}
+                    onChange={(e) =>
+                      void navigate({
+                        search: (s: TasksSearch) => ({ ...s, dueTo: e.target.value || undefined }),
+                        replace: true,
+                      })
+                    }
+                  />
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
 
-      <section aria-live="polite" aria-busy={list.isFetching}>
-        {list.isPending ? (
-          <LoadingList rows={5} />
-        ) : list.isError ? (
-          <ErrorState message={errorMessage(list.error, t)} onRetry={() => void list.refetch()} />
-        ) : items.length === 0 ? (
-          <EmptyState
-            icon={filtering ? 'search' : 'list'}
-            title={filtering ? t('tasks.empty.search') : t(`tasks.empty.${tab}`)}
-          />
-        ) : (
-          <div className="stack">
-            <p className="visually-hidden">{t('tasks.count', { count: items.length })}</p>
-            <ul className="task-list">
-              {items.map((task) => (
-                <TaskRow key={task.id} task={task} tz={tz} />
-              ))}
-            </ul>
-            {list.hasNextPage && (
-              <button
-                className="btn btn--secondary"
-                onClick={() => void list.fetchNextPage()}
-                disabled={list.isFetchingNextPage}
-              >
-                {list.isFetchingNextPage && <Spinner />}
-                {t('tasks.loadMore')}
-              </button>
-            )}
-          </div>
-        )}
-      </section>
-    </main>
+        <section aria-live="polite" aria-busy={list.isFetching}>
+          {list.isPending ? (
+            <LoadingList rows={5} />
+          ) : list.isError ? (
+            <ErrorState message={errorMessage(list.error, t)} onRetry={() => void list.refetch()} />
+          ) : items.length === 0 ? (
+            <EmptyState
+              icon={filtering ? 'search' : 'list'}
+              title={filtering ? t('tasks.empty.search') : t(`tasks.empty.${tab}`)}
+            />
+          ) : (
+            <div className="stack">
+              <p className="visually-hidden">{t('tasks.count', { count: items.length })}</p>
+              <ul className="task-list">
+                {items.map((task) => (
+                  <TaskRow key={task.id} task={task} tz={tz} />
+                ))}
+              </ul>
+              {list.hasNextPage && (
+                <button
+                  className="btn btn--secondary"
+                  onClick={() => void list.fetchNextPage()}
+                  disabled={list.isFetchingNextPage}
+                >
+                  {list.isFetchingNextPage && <Spinner />}
+                  {t('tasks.loadMore')}
+                </button>
+              )}
+            </div>
+          )}
+        </section>
+      </main>
+    </Workspace>
   );
 }

@@ -48,7 +48,11 @@
     "settings": "Settings",
     "newTask": "New task",
     "skipToContent": "Skip to main content",
-    "profile": "Profile and settings"
+    "profile": "Profile and settings",
+    "views": "Views",
+    "myTasks": "My tasks",
+    "overdue": "Overdue",
+    "completed": "Completed"
   },
   "language": {
     "label": "Language",
@@ -231,7 +235,9 @@
       "date": "Date",
       "time": "Time",
       "priority": "Priority",
-      "status": "Status"
+      "status": "Status",
+      "assignee": "Assigned to",
+      "createdBy": "Created by"
     },
     "when": {
       "none": "No date",
@@ -305,7 +311,11 @@
       "removed": "Removed by a moderator"
     },
     "markDoneShort": "Mark as done",
-    "markNotDoneShort": "Mark as not done"
+    "markNotDoneShort": "Mark as not done",
+    "panel": {
+      "close": "Close details",
+      "label": "Task details"
+    }
   },
   "settings": {
     "title": "Settings",

@@ -1,9 +1,10 @@
-import { Link, Outlet, useRouterState } from '@tanstack/react-router';
+import { Link, Outlet, useRouterState, useSearch } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMe, useTaskCounts } from '../api/queries';
 import { applyLocale } from '../lib/i18n';
 import { applyTheme } from '../lib/theme';
+import { Avatar } from './Avatar';
 import { Icon, type IconName } from './Icon';
 
 function NavLinks() {
@@ -46,6 +47,92 @@ function NavLinks() {
   );
 }
 
+/** Desktop sidebar: views with live counts (as in the desktop design), profile card at the bottom. */
+function SidebarNav() {
+  const { t } = useTranslation();
+  const me = useMe();
+  const path = useRouterState({ select: (s) => s.location.pathname });
+  const search = useSearch({ strict: false }) as { tab?: string };
+  const counts = useTaskCounts().data;
+  const tab = path === '/tasks' ? (search.tab ?? 'mine') : null;
+  const views: Array<{
+    key: string;
+    label: string;
+    to: '/today' | '/tasks';
+    tab?: 'overdue' | 'completed';
+    count?: number;
+    alert?: boolean;
+    current: boolean;
+  }> = [
+    {
+      key: 'today',
+      label: t('nav.today'),
+      to: '/today',
+      count: counts ? counts.today + counts.overdue : undefined,
+      current: path === '/today',
+    },
+    {
+      key: 'mine',
+      label: t('nav.myTasks'),
+      to: '/tasks',
+      count: counts?.open,
+      current: tab === 'mine',
+    },
+    {
+      key: 'overdue',
+      label: t('nav.overdue'),
+      to: '/tasks',
+      tab: 'overdue',
+      count: counts?.overdue || undefined,
+      alert: true,
+      current: tab === 'overdue',
+    },
+    {
+      key: 'completed',
+      label: t('nav.completed'),
+      to: '/tasks',
+      tab: 'completed',
+      current: tab === 'completed',
+    },
+  ];
+  return (
+    <>
+      <ul className="sidebar__views" aria-label={t('nav.views')}>
+        {views.map((v) => (
+          <li key={v.key}>
+            <Link
+              to={v.to}
+              search={v.to === '/tasks' ? { tab: v.tab } : {}}
+              className="nav-link"
+              aria-current={v.current ? 'page' : undefined}
+            >
+              <span>{v.label}</span>
+              {v.count !== undefined && (
+                <span
+                  className={v.alert ? 'sidebar__count sidebar__count--alert' : 'sidebar__count'}
+                >
+                  {v.count}
+                </span>
+              )}
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <Link
+        to="/settings"
+        className="sidebar__me"
+        aria-current={path === '/settings' ? 'page' : undefined}
+      >
+        <Avatar name={me.data?.name ?? ''} url={me.data?.avatarUrl ?? null} />
+        <span className="stack" style={{ gap: 0 }}>
+          <span style={{ fontWeight: 600, fontSize: 14 }}>{me.data?.name}</span>
+          <span className="meta">{t('nav.settings')}</span>
+        </span>
+      </Link>
+    </>
+  );
+}
+
 /** Signed-in layout: skip link, sidebar (desktop) or bottom nav (phone), and the main New task button. */
 export function AppShell() {
   const { t } = useTranslation();
@@ -76,7 +163,7 @@ export function AppShell() {
           <Icon name="plus" />
           {t('nav.newTask')}
         </Link>
-        <NavLinks />
+        <SidebarNav />
       </nav>
       <div>
         <Outlet />

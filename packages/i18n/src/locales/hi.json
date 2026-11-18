@@ -48,7 +48,11 @@
     "settings": "सेटिंग्स",
     "newTask": "नया काम",
     "skipToContent": "मुख्य सामग्री पर जाएँ",
-    "profile": "प्रोफ़ाइल और सेटिंग्स"
+    "profile": "प्रोफ़ाइल और सेटिंग्स",
+    "views": "व्यू",
+    "myTasks": "मेरे काम",
+    "overdue": "समय से पीछे",
+    "completed": "पूरे हुए"
   },
   "language": {
     "label": "भाषा",
@@ -231,7 +235,9 @@
       "date": "तारीख",
       "time": "समय",
       "priority": "प्राथमिकता",
-      "status": "स्थिति"
+      "status": "स्थिति",
+      "assignee": "किसे सौंपा",
+      "createdBy": "किसने बनाया"
     },
     "when": {
       "none": "कोई तारीख नहीं",
@@ -305,7 +311,11 @@
       "removed": "मॉडरेटर ने हटाया"
     },
     "markDoneShort": "पूरा हुआ चिह्नित करें",
-    "markNotDoneShort": "अधूरा चिह्नित करें"
+    "markNotDoneShort": "अधूरा चिह्नित करें",
+    "panel": {
+      "close": "विवरण बंद करें",
+      "label": "काम का विवरण"
+    }
   },
   "settings": {
     "title": "सेटिंग्स",

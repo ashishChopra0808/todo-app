@@ -277,10 +277,194 @@ p {
     padding-block-end: var(--space-8);
   }
 }
+/* Desktop sidebar views and profile card */
+.sidebar__views {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sidebar__views .nav-link {
+  justify-content: space-between;
+}
+.sidebar__count {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.sidebar__count--alert {
+  color: var(--color-alert);
+  font-weight: 600;
+}
+.sidebar__me {
+  margin-block-start: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-block-size: 52px;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-input);
+  text-decoration: none;
+  color: inherit;
+}
+.sidebar__me[aria-current='page'] {
+  background: var(--color-accent-soft);
+}
+
+/* List + detail panel side by side on wide screens */
+.workspace--open {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
+  align-items: start;
+}
+.task-panel {
+  position: sticky;
+  inset-block-start: 0;
+  block-size: 100dvh;
+  overflow-y: auto;
+  background: var(--color-surface);
+  border-inline-start: 1px solid var(--color-border);
+  padding: var(--space-6) var(--space-6) var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+.panel-title {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+.panel-title:focus {
+  outline: none;
+}
+.panel-title:focus-visible {
+  outline: 2px solid var(--color-focus);
+}
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+}
+.detail-grid dt {
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+}
+.detail-grid dd {
+  margin: 2px 0 0;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.detail-meta > div {
+  display: contents;
+}
+.task-row[data-selected] {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent);
+}
+
 .desktop-only {
   display: none;
 }
 @media (min-width: 900px) {
+  /* Desktop sidebar views and profile card */
+  .sidebar__views {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .sidebar__views .nav-link {
+    justify-content: space-between;
+  }
+  .sidebar__count {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .sidebar__count--alert {
+    color: var(--color-alert);
+    font-weight: 600;
+  }
+  .sidebar__me {
+    margin-block-start: auto;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-block-size: 52px;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-input);
+    text-decoration: none;
+    color: inherit;
+  }
+  .sidebar__me[aria-current='page'] {
+    background: var(--color-accent-soft);
+  }
+
+  /* List + detail panel side by side on wide screens */
+  .workspace--open {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
+    align-items: start;
+  }
+  .task-panel {
+    position: sticky;
+    inset-block-start: 0;
+    block-size: 100dvh;
+    overflow-y: auto;
+    background: var(--color-surface);
+    border-inline-start: 1px solid var(--color-border);
+    padding: var(--space-6) var(--space-6) var(--space-8);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+  .panel-title {
+    font-size: 22px;
+    line-height: 28px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    overflow-wrap: anywhere;
+  }
+  .panel-title:focus {
+    outline: none;
+  }
+  .panel-title:focus-visible {
+    outline: 2px solid var(--color-focus);
+  }
+  .detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-4);
+    margin: 0;
+  }
+  .detail-grid dt {
+    font-size: 12.5px;
+    color: var(--color-text-muted);
+  }
+  .detail-grid dd {
+    margin: 2px 0 0;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .detail-meta > div {
+    display: contents;
+  }
+  .task-row[data-selected] {
+    background: var(--color-accent-soft);
+    border-color: var(--color-accent);
+  }
+
   .desktop-only {
     display: inline-flex;
   }

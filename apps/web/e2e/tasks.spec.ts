@@ -18,7 +18,10 @@ test('create a task, complete it, undo, edit, see activity and delete', async ({
   await page.getByRole('button', { name: 'Add task' }).click();
 
   await expect(page).toHaveURL(/\/today/);
-  const row = page.getByRole('listitem').filter({ hasText: 'Pay electricity bill' });
+  const row = page
+    .getByRole('main')
+    .getByRole('listitem')
+    .filter({ hasText: 'Pay electricity bill' });
   await expect(row).toContainText('Today, 11:59');
   await expect(row).toContainText('High');
   await expectAccessible(page);
@@ -33,14 +36,19 @@ test('create a task, complete it, undo, edit, see activity and delete', async ({
     page.getByRole('button', { name: 'Mark as done: Pay electricity bill' }),
   ).toHaveAttribute('aria-pressed', 'false');
 
+  // Phones open the task page; wide screens open the side panel. Both show the same details.
   await page.getByRole('link', { name: /Pay electricity bill/ }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Pay electricity bill');
+  await expect(
+    page.getByRole('heading', { name: 'Pay electricity bill', exact: true }),
+  ).toBeVisible();
   await expectAccessible(page);
   await page.getByRole('link', { name: 'Edit' }).click();
   await page.getByLabel('Task title').fill('Pay electricity bill online');
   await page.getByRole('radio', { name: 'In progress' }).check();
   await page.getByRole('button', { name: 'Save changes' }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Pay electricity bill online');
+  await expect(
+    page.getByRole('heading', { name: 'Pay electricity bill online', exact: true }),
+  ).toBeVisible();
   await expect(page.getByText('You renamed it to “Pay electricity bill online”')).toBeVisible();
   await expect(page.getByText('You marked it In progress')).toBeVisible();
 
@@ -66,14 +74,46 @@ test('search and filter tasks', async ({ page }) => {
     await expect(page).not.toHaveURL(/\/new/);
   }
   await page.goto('/tasks');
-  await expect(page.getByRole('listitem')).toHaveCount(3);
+  const rows = page.getByRole('main').getByRole('listitem');
+  await expect(rows).toHaveCount(3);
+  // Ticking a task on the paged Tasks list works and it leaves "My tasks".
+  await rows
+    .filter({ hasText: 'Call plumber' })
+    .getByRole('button', { name: /Mark as done/ })
+    .click();
+  await expect(page.getByRole('button', { name: 'Mark as not done: Call plumber' })).toBeVisible();
+  await page.reload();
+  await expect(rows).toHaveCount(2);
   await page.getByRole('searchbox', { name: 'Search tasks' }).fill('milk');
-  await expect(page.getByRole('listitem')).toHaveCount(1);
+  await expect(rows).toHaveCount(1);
   await expect(page).toHaveURL(/q=milk/);
   await page.getByRole('searchbox', { name: 'Search tasks' }).fill('');
   await page.getByRole('button', { name: 'Filters' }).click();
   await page.getByRole('checkbox', { name: 'High' }).check();
-  await expect(page.getByRole('listitem')).toHaveCount(1);
-  await expect(page.getByRole('listitem')).toContainText('Book train tickets');
+  await expect(rows).toHaveCount(1);
+  await expect(rows).toContainText('Book train tickets');
   await expectAccessible(page);
+});
+
+test('desktop: tasks open in a side panel; Escape closes it and returns focus', async ({
+  page,
+}, info) => {
+  test.skip(info.project.name !== 'desktop', 'side panel is a wide-screen layout');
+  await signUpByEmail(page);
+  await page.goto('/tasks/new');
+  await page.getByLabel('Task title').fill('Renew car insurance');
+  await page.getByRole('button', { name: 'Add task' }).click();
+  await expect(page).not.toHaveURL(/\/new/);
+  await page.goto('/tasks');
+  const link = page.getByRole('link', { name: /Renew car insurance/ });
+  await link.click();
+  const panel = page.getByRole('complementary', { name: 'Task details' });
+  await expect(panel.getByRole('heading', { level: 2 })).toBeFocused();
+  await expect(page).toHaveURL(/task=/);
+  await expectAccessible(page);
+  await panel.getByRole('radio', { name: 'In progress' }).check();
+  await expect(panel.getByText('You marked it In progress')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(panel).toBeHidden();
+  await expect(link).toBeFocused();
 });
