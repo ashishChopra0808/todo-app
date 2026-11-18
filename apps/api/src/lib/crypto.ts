@@ -1,13 +1,15 @@
 import {
   createCipheriv,
   createDecipheriv,
+  createHash,
   createHmac,
   randomBytes,
   timingSafeEqual,
 } from 'node:crypto';
 
-export function createCrypto(opts: { encryptionKeyBase64: string; ipSalt: string }) {
-  const key = Buffer.from(opts.encryptionKeyBase64, 'base64');
+export function createCrypto(opts: { encryptionKey: string; ipSalt: string }) {
+  // SHA-256 turns any long random secret into exactly 32 bytes for AES-256.
+  const key = createHash('sha256').update(opts.encryptionKey).digest();
   return {
     /** AES-256-GCM. Output: base64(iv | tag | ciphertext) */
     encrypt(plain: string): string {

@@ -28,6 +28,7 @@ export function testConfig(overrides: Record<string, string> = {}) {
     PROXY_SHARED_SECRET: 'proxy-secret',
     TRUST_PROXY_HOPS: '0',
     RUN_WORKER_IN_PROCESS: 'false',
+    LOG_LEVEL: 'silent',
     RATE_LIMITS_ENABLED: 'true',
     ...overrides,
   });

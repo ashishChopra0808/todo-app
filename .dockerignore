@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+**/.turbo
+**/.outbox
+**/.storage
+**/test-results
+**/playwright-report
+.env
+.env.*
+.git
+apps/web/dist
+apps/web/e2e
+*.rdb

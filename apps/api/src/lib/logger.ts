@@ -22,7 +22,7 @@ export const REDACT_PATHS = [
 
 export function loggerOptions(config: Config): FastifyServerOptions['logger'] {
   return {
-    level: config.APP_ENV === 'test' ? 'silent' : config.LOG_LEVEL,
+    level: config.LOG_LEVEL,
     redact: { paths: REDACT_PATHS, censor: '[redacted]' },
     base: { service: 'todo-api', env: config.APP_ENV },
     timestamp: () => `,"time":"${new Date().toISOString()}"`,

@@ -35,6 +35,13 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       ...jsxA11y.flatConfigs.recommended.rules,
+      // Used deliberately: only on single-task screens (OTP entry, new task title) and on the
+      // first field of a dialog, which is the ARIA dialog pattern.
+      'jsx-a11y/no-autofocus': 'off',
     },
+  },
+  {
+    files: ['**/scripts/**/*.mjs'],
+    rules: { 'no-console': 'off' },
   },
 );

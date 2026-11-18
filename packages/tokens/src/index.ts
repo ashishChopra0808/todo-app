@@ -6,7 +6,10 @@ export const colors = {
   light: {
     bg: '#F6F5F1',
     surface: '#FFFFFF',
+    surfaceMuted: '#EFEEE9',
     border: '#E4E2DC',
+    /** Input and control outlines: must reach 3:1 against surface (WCAG 1.4.11). */
+    borderStrong: '#858A86',
     text: '#1D1F1E',
     textMuted: '#5D625F',
     accent: '#2F6B5F',
@@ -27,7 +30,9 @@ export const colors = {
   dark: {
     bg: '#141615',
     surface: '#1E2120',
+    surfaceMuted: '#262A28',
     border: '#2F3432',
+    borderStrong: '#7E8581',
     text: '#ECEDEA',
     textMuted: '#A8AEAA',
     accent: '#86C5B5',
@@ -85,6 +90,10 @@ export const contrastPairs: Array<[ColorToken, ColorToken, number]> = [
   ['priorityLow', 'surface', 3],
   ['focus', 'bg', 3],
   ['focus', 'surface', 3],
+  ['borderStrong', 'surface', 3],
+  ['borderStrong', 'bg', 3],
+  ['text', 'surfaceMuted', 4.5],
+  ['textMuted', 'surfaceMuted', 4.5],
 ];
 
 const kebab = (s: string) => s.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);

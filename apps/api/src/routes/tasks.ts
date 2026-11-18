@@ -1,12 +1,18 @@
 import type { FastifyInstance } from 'fastify';
-import { taskCreateSchema, taskListQuerySchema, taskUpdateSchema, uuidSchema } from '@todo/shared';
+import {
+  canonicalTimeZone,
+  taskCreateSchema,
+  taskListQuerySchema,
+  taskUpdateSchema,
+  uuidSchema,
+} from '@todo/shared';
 import type { AppDeps } from '../app';
 
 export function taskRoutes(app: FastifyInstance, deps: AppDeps) {
   const pre = { preHandler: deps.requireUser };
   const viewer = (req: { user: { id: string; timeZone: string } | null }) => ({
     id: req.user!.id,
-    timeZone: req.user!.timeZone,
+    timeZone: canonicalTimeZone(req.user!.timeZone),
   });
   const ipHash = (req: { clientIp: string }) => deps.crypto.hashIp(req.clientIp);
   const idParam = (params: unknown) => uuidSchema.parse((params as { id: string }).id);

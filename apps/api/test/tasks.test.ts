@@ -86,6 +86,16 @@ describe('tasks', () => {
     expect((await c.get('/api/v1/tasks/counts')).json()).toEqual({ today: 1, overdue: 1, open: 3 });
   });
 
+  it('works for browsers that report the old name Asia/Calcutta', async () => {
+    const c = await signUpWithEmail(ctx);
+    expect((await c.patch('/api/v1/me', { timeZone: 'Asia/Calcutta' })).json().timeZone).toBe(
+      'Asia/Kolkata',
+    );
+    await create(c, { title: 'x', dueAt: new Date().toISOString(), dueHasTime: true });
+    expect((await c.get('/api/v1/tasks?view=today')).statusCode).toBe(200);
+    expect((await c.get('/api/v1/tasks/counts')).statusCode).toBe(200);
+  });
+
   it('searches title and description (Hindi too) and filters by status and priority', async () => {
     const c = await signUpWithEmail(ctx);
     await create(c, { title: 'दूध लाना', description: 'Mother dairy' });
@@ -163,5 +173,20 @@ describe("authorisation: a user can never see or change another user's tasks", (
     const anon = client(ctx);
     expect((await anon.get('/api/v1/tasks')).statusCode).toBe(401);
     expect((await anon.post('/api/v1/tasks', { title: 'x' })).statusCode).toBe(401);
+  });
+});
+
+describe('time zone aliases at sign-up', () => {
+  it('stores Asia/Calcutta from the browser as Asia/Kolkata', async () => {
+    const c = client(ctx);
+    await c.post('/api/auth/sign-up/email', {
+      name: 'T',
+      email: 'tz@example.com',
+      password: 'mango-river-lamp-91',
+      acceptTerms: true,
+      timeZone: 'Asia/Calcutta',
+    });
+    const u = await ctx.deps.db.query.users.findFirst();
+    expect(u?.timeZone).toBe('Asia/Kolkata');
   });
 });

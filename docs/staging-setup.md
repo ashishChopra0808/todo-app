@@ -1,0 +1,132 @@
+# Staging setup (do this once, from a phone or laptop)
+
+After this, every push to `main` deploys to staging automatically:
+
+- **Railway** runs the API, background jobs, Postgres and Redis (Singapore).
+- **Cloudflare Pages** serves the web app and forwards `/api/*` to Railway.
+
+Never paste secrets into chat or into the repository. Enter them only in Railway, Cloudflare or GitHub settings.
+
+**Secrets you'll create.** Where this guide says _"a long random secret"_, use your password manager's
+"generate password" button (Google Password Manager, iCloud Keychain, Bitwarden…). Choose 48 characters,
+letters and numbers only. Save each one in the password manager too.
+
+---
+
+## 1. Cloudflare R2 (file storage)
+
+1. Cloudflare dashboard → **R2 Object Storage** → **Create bucket** → name `todo-staging`, location _Asia-Pacific_.
+2. R2 → **Manage API tokens** → **Create API token**.
+   - Permissions: _Object Read & Write_.
+   - Scope: only the bucket `todo-staging`.
+3. Keep that page open. You need the **Access Key ID**, the **Secret Access Key** and the **endpoint**
+   (`https://<account-id>.r2.cloudflarestorage.com`) in step 3.
+
+## 2. Resend (email codes)
+
+1. Sign up at resend.com with **the email address you'll test with**.
+2. **API Keys** → **Create API key** (permission _Sending access_). Keep it for step 3.
+
+Until a domain is added, Resend only delivers to your own sign-up email. That's enough to test, because
+staging also forwards SMS codes to that address (see `SMS_FORWARD_TO`).
+
+## 3. Railway (API, Postgres, Redis)
+
+1. railway.com → sign in with GitHub → **New Project** → **Deploy from GitHub repo** → `ashishChopra0808/todo-app`.
+   Name the service `api`.
+2. In the project, click **Create** → **Database** → **PostgreSQL**. Then again → **Database** → **Redis**.
+3. Open the `api` service → **Settings**:
+   - **Config-as-code / Railway config file**: `apps/api/railway.json`. This sets the Dockerfile and the health check.
+   - **Region**: Southeast Asia (Singapore).
+   - **Networking** → **Generate Domain**. Copy the URL, for example `https://api-staging-xxxx.up.railway.app`.
+   - **Source** → turn on **Wait for CI**, so a red CI run never deploys.
+4. Open the `api` service → **Variables** → **Raw Editor**. Paste the block below, then replace each `<…>`:
+
+```
+NODE_ENV=production
+APP_ENV=staging
+LOG_LEVEL=info
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+REDIS_URL=${{Redis.REDIS_URL}}
+APP_ORIGIN=https://<your-pages-project>.pages.dev
+BETTER_AUTH_SECRET=<a long random secret>
+DATA_ENCRYPTION_KEY=<another long random secret>
+IP_HASH_SALT=<another long random secret>
+PROXY_SHARED_SECRET=<another long random secret — you will paste the same value into Cloudflare>
+TRUST_PROXY_HOPS=1
+EMAIL_DRIVER=resend
+EMAIL_FROM=ToDo <onboarding@resend.dev>
+RESEND_API_KEY=<from step 2>
+SMS_DRIVER=forward-email
+SMS_FORWARD_TO=<your email — SMS codes arrive here until DLT is approved>
+STORAGE_DRIVER=s3
+S3_ENDPOINT=<R2 endpoint from step 1>
+S3_REGION=auto
+S3_BUCKET=todo-staging
+S3_ACCESS_KEY_ID=<from step 1>
+S3_SECRET_ACCESS_KEY=<from step 1>
+RUN_WORKER_IN_PROCESS=true
+RATE_LIMITS_ENABLED=true
+SENTRY_DSN=<optional, from step 6>
+```
+
+5. **Deploy**. The first build takes a few minutes. When it's done, open `<railway url>/health/ready`.
+   You should see `{"status":"ok",...}`.
+
+Keep `DATA_ENCRYPTION_KEY` safe and never change it. It encrypts the records kept after an account is
+deleted, and changing it makes those records unreadable.
+
+## 4. Cloudflare Pages (web app)
+
+1. Cloudflare dashboard → **Workers & Pages** → **Create** → **Pages** → **Connect to Git** → `todo-app`.
+2. Build settings:
+   - Framework preset: **None**
+   - Root directory: `apps/web`
+   - Build command: `npx pnpm@10.28.0 install --frozen-lockfile && npx pnpm@10.28.0 run build`
+   - Build output directory: `dist`
+3. **Environment variables** (production branch = `main`):
+   - `NODE_VERSION` = `22`
+   - `API_ORIGIN` = the Railway URL from step 3
+   - `PROXY_SHARED_SECRET` = the **same** value as in Railway. Click **Encrypt**.
+   - `VITE_APP_ENV` = `staging`
+   - `VITE_SENTRY_DSN` = optional, from step 6
+4. **Save and Deploy**. Your app is at `https://<project>.pages.dev`.
+   If that differs from the `APP_ORIGIN` you guessed in step 3, update `APP_ORIGIN` in Railway.
+
+## 5. Google sign-in (optional for first tests)
+
+1. console.cloud.google.com → create a project `ToDo` → **APIs & Services** → **OAuth consent screen**.
+   Choose _External_ and _Testing_, then add your Gmail address as a test user.
+2. **Credentials** → **Create credentials** → **OAuth client ID** → _Web application_:
+   - Authorised JavaScript origin: `https://<project>.pages.dev`
+   - Authorised redirect URI: `https://<project>.pages.dev/api/auth/callback/google`
+3. Add to Railway variables: `GOOGLE_CLIENT_ID=…` and `GOOGLE_CLIENT_SECRET=…`.
+   The "Continue with Google" button appears automatically.
+
+## 6. Sentry (optional)
+
+sentry.io → create two projects: _Node_ (API) and _React_ (web). Copy each DSN into
+`SENTRY_DSN` (Railway) and `VITE_SENTRY_DSN` (Cloudflare Pages).
+
+## 7. Uptime check (optional)
+
+Point any free uptime monitor (UptimeRobot, Better Stack) at `https://<project>.pages.dev/api/health`
+(checks the website and the API together) and at `<railway url>/health/ready` (also checks Postgres and Redis).
+
+---
+
+## What to test on your phone
+
+1. Sign up with email → code arrives by email → you land on Today.
+2. Sign up with phone → the "SMS" arrives in your email inbox (staging only) → enter the code.
+3. Log out → **Forgot password** → reset by email.
+4. Add tasks with and without dates and times. Tick them done and undo. Edit, delete, search, filter.
+5. Settings: change language to हिन्दी, switch theme, change time zone, upload a photo,
+   add a phone number, log out from all devices, download your data, delete the account.
+6. Chrome menu → **Add to Home screen**. ToDo opens like an app.
+
+## Production later
+
+Create a `production` environment in the same Railway project and a second Pages project
+(or a production branch) with its own secrets, a real domain, `SMS_DRIVER=msg91` and a verified
+Resend domain. `SMS_DRIVER=forward-email` is refused in production.

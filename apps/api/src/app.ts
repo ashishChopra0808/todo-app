@@ -57,13 +57,12 @@ export async function buildApp(
     trustProxy: (_addr: string, hop: number) => hop < config.TRUST_PROXY_HOPS,
     bodyLimit: 256 * 1024,
     routerOptions: { maxParamLength: 500 },
-    disableRequestLogging: false,
   });
 
   const { db, pool } = createDb(config.DATABASE_URL);
   const redis = createRedis(config.REDIS_URL);
   const crypto = createCrypto({
-    encryptionKeyBase64: config.DATA_ENCRYPTION_KEY,
+    encryptionKey: config.DATA_ENCRYPTION_KEY,
     ipSalt: config.IP_HASH_SALT,
   });
   const audit = createAudit(db, crypto);

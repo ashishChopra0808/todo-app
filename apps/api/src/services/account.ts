@@ -2,6 +2,7 @@ import { and, asc, desc, eq, isNull } from 'drizzle-orm';
 import sharp, { type Metadata } from 'sharp';
 import {
   RETENTION_DAYS,
+  canonicalTimeZone,
   isPlaceholderEmail,
   type AppLocale,
   type MeDto,
@@ -54,7 +55,7 @@ export function createAccountService(db: Db, storage: Storage, crypto: CryptoKit
         phoneNumberVerified: user.phoneNumberVerified,
         avatarUrl: await avatarUrl(user),
         locale: user.locale as AppLocale,
-        timeZone: user.timeZone,
+        timeZone: canonicalTimeZone(user.timeZone),
         theme: user.theme as Theme,
         simpleMode: user.simpleMode,
         hasPassword: accts.some((a) => a.providerId === 'credential' && !!a.password),

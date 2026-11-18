@@ -10,5 +10,445 @@
   "sms": {
     "otp": "{{code}} is your ToDo verification code. Valid for {{minutes}} min. Do not share it with anyone.",
     "reset": "{{code}} is your ToDo password reset code. Valid for {{minutes}} min. Do not share it with anyone."
+  },
+  "app": {
+    "name": "ToDo",
+    "tagline": "Your tasks and your groups, all in one calm place."
+  },
+  "common": {
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "back": "Back",
+    "retry": "Try again",
+    "loading": "Loading…",
+    "optional": "optional",
+    "continue": "Continue",
+    "or": "or",
+    "show": "Show",
+    "hide": "Hide",
+    "clear": "Clear",
+    "done": "Done",
+    "change": "Change",
+    "remove": "Remove",
+    "add": "Add",
+    "confirm": "Confirm",
+    "signOut": "Sign out",
+    "newVersion": "A new version of ToDo is ready.",
+    "reload": "Reload",
+    "offline": "You're offline. Changes can't be saved right now."
+  },
+  "nav": {
+    "main": "Main",
+    "today": "Today",
+    "tasks": "Tasks",
+    "settings": "Settings",
+    "newTask": "New task",
+    "skipToContent": "Skip to main content",
+    "profile": "Profile and settings"
+  },
+  "language": {
+    "label": "Language",
+    "switcher": "Language: {{current}}. Change language"
+  },
+  "auth": {
+    "signIn": {
+      "title": "Welcome back",
+      "submit": "Log in",
+      "noAccount": "New here?",
+      "createAccount": "Create an account",
+      "forgot": "Forgot password?"
+    },
+    "signUp": {
+      "title": "Create your account",
+      "subtitle": "Verify your email or phone with a one-time code to get started.",
+      "submit": "Create account",
+      "haveAccount": "Already have an account?",
+      "signIn": "Log in",
+      "consent": "I agree to the <terms>Terms of use</terms> and the <privacy>Privacy policy</privacy>."
+    },
+    "method": {
+      "label": "Sign in with",
+      "email": "Email",
+      "phone": "Phone"
+    },
+    "google": "Continue with Google",
+    "googleNotice": "By continuing you agree to our <terms>Terms</terms> and <privacy>Privacy policy</privacy>.",
+    "fields": {
+      "name": "Your name",
+      "email": "Email",
+      "phone": "Mobile number",
+      "phoneHint": "Indian numbers work without +91. Include the country code for other countries.",
+      "password": "Password",
+      "newPassword": "New password",
+      "passwordHint": "At least 8 characters. A few unrelated words work well."
+    },
+    "strength": {
+      "label": "Password strength: {{level}}",
+      "0": "Very weak",
+      "1": "Weak",
+      "2": "Fair",
+      "3": "Strong",
+      "4": "Very strong"
+    },
+    "otp": {
+      "title": "Enter the code",
+      "sentToEmail": "We sent a 6-digit code to {{target}}.",
+      "sentToPhone": "We sent a 6-digit code by SMS to {{target}}.",
+      "label": "6-digit code",
+      "submit": "Verify",
+      "resend": "Send a new code",
+      "resendIn": "You can get a new code in {{seconds}} s",
+      "expiresIn": "The code expires in {{time}}.",
+      "expired": "This code has expired. Send a new one.",
+      "rules": "You can try 5 times. Codes expire after 5 minutes.",
+      "useDifferent": "Use a different email or phone",
+      "resent": "A new code is on its way."
+    },
+    "forgot": {
+      "title": "Reset your password",
+      "subtitle": "We'll send a code to your email or phone.",
+      "submit": "Send code",
+      "resetTitle": "Choose a new password",
+      "resetSubmit": "Save new password",
+      "success": "Password changed. Log in with your new password.",
+      "backToSignIn": "Back to log in"
+    },
+    "callback": {
+      "loading": "Signing you in…",
+      "failed": "We couldn't sign you in with Google. Please try again."
+    },
+    "suspended": {
+      "title": "This account is suspended",
+      "body": "It was suspended for breaking our acceptable-use rules. If you think this is a mistake, contact our grievance officer.",
+      "contact": "Contact the grievance officer"
+    },
+    "unverified": "Please verify your account first. We've sent you a new code."
+  },
+  "errors": {
+    "validation_failed": "Please check the highlighted fields.",
+    "unauthenticated": "Please log in to continue.",
+    "forbidden": "You don't have access to this.",
+    "not_found": "We couldn't find that.",
+    "conflict": "This was changed somewhere else. We've loaded the latest version.",
+    "rate_limited": "Too many tries. Please wait a little and try again.",
+    "account_locked": "Too many failed attempts. Try again in 15 minutes, or reset your password.",
+    "account_suspended": "This account is suspended.",
+    "not_verified": "Please verify your account first.",
+    "invalid_credentials": "That email or phone and password don't match.",
+    "already_exists": "This already exists.",
+    "phone_taken": "This number is already registered. Try logging in.",
+    "email_taken": "This email is already registered. Try logging in.",
+    "weak_password": "Please choose a stronger password.",
+    "invalid_otp": "That code isn't right. Check it and try again.",
+    "otp_expired": "This code has expired. Send a new one.",
+    "too_many_attempts": "Too many wrong codes. Send a new code.",
+    "unsupported_file": "Please use a JPEG, PNG or WebP image.",
+    "file_too_large": "Images must be 2 MB or smaller.",
+    "reauth_required": "For your safety, please log in again first.",
+    "internal": "Something went wrong on our side. Please try again.",
+    "network": "Can't reach ToDo. Check your connection and try again.",
+    "retryAfter": "Try again in {{seconds}} s.",
+    "field": {
+      "required": "This is required.",
+      "too_long": "This is too long.",
+      "too_short": "This is too short.",
+      "invalid_email": "Enter a valid email address.",
+      "invalid_phone": "Enter a valid mobile number.",
+      "consent_required": "Please accept the terms to continue.",
+      "too_weak": "Too easy to guess. Add more words or characters.",
+      "invalid_date": "Enter a valid date.",
+      "invalid": "This isn't valid.",
+      "invalid_otp": "Enter the 6 digits.",
+      "confirm_required": "Type DELETE to confirm.",
+      "invalid_time_zone": "Choose a time zone from the list."
+    }
+  },
+  "today": {
+    "greeting": {
+      "morning": "Good morning, {{name}}",
+      "afternoon": "Good afternoon, {{name}}",
+      "evening": "Good evening, {{name}}"
+    },
+    "progress_one": "{{done}} of {{count}} done today",
+    "progress_other": "{{done}} of {{count}} done today",
+    "overdueCount_one": "{{count}} overdue",
+    "overdueCount_other": "{{count}} overdue",
+    "sections": {
+      "overdue": "Overdue",
+      "today": "Today",
+      "done": "Done today"
+    },
+    "empty": {
+      "title": "Nothing due today",
+      "body": "Enjoy the calm, or add something you want to get done.",
+      "action": "Add a task"
+    }
+  },
+  "tasks": {
+    "title": "Tasks",
+    "tabs": {
+      "label": "Task views",
+      "mine": "My tasks",
+      "overdue": "Overdue",
+      "completed": "Completed"
+    },
+    "search": {
+      "label": "Search tasks",
+      "placeholder": "Search titles and details"
+    },
+    "filters": {
+      "toggle": "Filters",
+      "status": "Status",
+      "priority": "Priority",
+      "dueFrom": "Due from",
+      "dueTo": "Due until",
+      "clear": "Clear filters",
+      "active_one": "{{count}} filter on",
+      "active_other": "{{count}} filters on"
+    },
+    "empty": {
+      "mine": "No open tasks. Add one to get started.",
+      "overdue": "Nothing overdue. Nice work.",
+      "completed": "Tasks you finish will show up here.",
+      "search": "No tasks match your search."
+    },
+    "loadMore": "Show more",
+    "count_one": "{{count}} task",
+    "count_other": "{{count}} tasks",
+    "error": "We couldn't load your tasks."
+  },
+  "task": {
+    "fields": {
+      "title": "Task title",
+      "titlePlaceholder": "What needs doing?",
+      "description": "Details",
+      "descriptionPlaceholder": "Add details (optional)",
+      "when": "When",
+      "date": "Date",
+      "time": "Time",
+      "priority": "Priority",
+      "status": "Status"
+    },
+    "when": {
+      "none": "No date",
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "weekend": "This weekend",
+      "pick": "Pick date",
+      "addTime": "+ Add a time",
+      "removeTime": "Remove time"
+    },
+    "priority": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "label": "{{priority}} priority"
+    },
+    "status": {
+      "todo": "To do",
+      "in_progress": "In progress",
+      "done": "Done"
+    },
+    "new": "New task",
+    "editTitle": "Edit task",
+    "create": "Add task",
+    "saveChanges": "Save changes",
+    "created": "Task added.",
+    "saved": "Changes saved.",
+    "markDone": "Mark as done: {{title}}",
+    "markNotDone": "Mark as not done: {{title}}",
+    "markedDone": "Marked as done.",
+    "markedNotDone": "Marked as not done.",
+    "due": {
+      "today": "Today",
+      "todayAt": "Today, {{time}}",
+      "tomorrow": "Tomorrow",
+      "tomorrowAt": "Tomorrow, {{time}}",
+      "yesterday": "Yesterday",
+      "on": "{{date}}",
+      "onAt": "{{date}}, {{time}}",
+      "none": "No due date",
+      "overdue": "Overdue"
+    },
+    "personal": "Personal",
+    "delete": {
+      "button": "Delete task",
+      "title": "Delete this task?",
+      "body": "It disappears from your lists right away.",
+      "confirm": "Delete",
+      "done": "Task deleted."
+    },
+    "detail": {
+      "activity": "Activity",
+      "createdAt": "Created {{date}}",
+      "notFound": "This task doesn't exist or was deleted.",
+      "back": "Back to tasks"
+    },
+    "activity": {
+      "you": "You",
+      "someone": "Someone",
+      "created": "{{name}} created this task",
+      "title_changed": "{{name}} renamed it to “{{to}}”",
+      "description_changed": "{{name}} changed the details",
+      "due_changed": "{{name}} changed the due date",
+      "due_removed": "{{name}} removed the due date",
+      "priority_changed": "{{name}} set priority to {{to}}",
+      "status_changed": "{{name}} marked it {{to}}",
+      "assigned": "{{name}} assigned it",
+      "unassigned": "{{name}} unassigned it",
+      "deleted": "{{name}} deleted this task",
+      "restored": "{{name}} restored this task",
+      "removed": "Removed by a moderator"
+    },
+    "markDoneShort": "Mark as done",
+    "markNotDoneShort": "Mark as not done"
+  },
+  "settings": {
+    "title": "Settings",
+    "profile": {
+      "title": "Profile",
+      "name": "Name",
+      "photo": "Profile photo",
+      "changePhoto": "Change photo",
+      "removePhoto": "Remove photo",
+      "photoHint": "JPEG, PNG or WebP, up to 2 MB.",
+      "saved": "Profile saved."
+    },
+    "contact": {
+      "title": "Email and phone",
+      "email": "Email",
+      "phone": "Mobile number",
+      "verified": "Verified",
+      "notAdded": "Not added",
+      "addEmail": "Add email",
+      "changeEmail": "Change email",
+      "addPhone": "Add mobile number",
+      "changePhone": "Change number",
+      "newEmail": "New email",
+      "newPhone": "New mobile number",
+      "sendCode": "Send code",
+      "updated": "Saved and verified.",
+      "help": "We'll send a code to the new one. Your current one keeps working until it's verified."
+    },
+    "preferences": {
+      "title": "Preferences",
+      "language": "Language",
+      "theme": "Theme",
+      "themes": {
+        "light": "Light",
+        "dark": "Dark",
+        "system": "Follow system"
+      },
+      "timeZone": "Time zone",
+      "timeZoneHint": "Due dates and “Today” use this time zone."
+    },
+    "security": {
+      "title": "Security",
+      "changePassword": "Change password",
+      "currentPassword": "Current password",
+      "newPassword": "New password",
+      "passwordChanged": "Password changed.",
+      "sessions": "Where you're logged in",
+      "thisDevice": "This device",
+      "unknownDevice": "Unknown device",
+      "since": "Since {{date}}",
+      "signOutDevice": "Log out",
+      "signOutAll": "Log out from all devices",
+      "signOutAllTitle": "Log out everywhere?",
+      "signOutAllBody": "You'll be logged out on every device, including this one.",
+      "google": "Signed in with Google"
+    },
+    "privacy": {
+      "title": "Your data",
+      "export": "Download my data",
+      "exportBody": "A JSON file with your profile, tasks and activity.",
+      "exportDone": "Your download has started.",
+      "delete": "Delete my account",
+      "deleteBody": "Your account is closed immediately and your tasks disappear. As Indian law requires, we keep your sign-up details for 180 days in encrypted form, then delete them.",
+      "deleteTitle": "Delete your account?",
+      "deleteConfirmLabel": "Type DELETE to confirm",
+      "deletePassword": "Your password",
+      "deleteSubmit": "Delete my account",
+      "deleteReauth": "Log in again, then come back here to delete your account.",
+      "deleted": "Your account has been deleted."
+    },
+    "legal": {
+      "title": "About",
+      "terms": "Terms of use",
+      "privacy": "Privacy policy",
+      "grievance": "Grievance contact",
+      "version": "Version {{version}}"
+    }
+  },
+  "legal": {
+    "draft": "Draft — under legal review. Not yet final.",
+    "updated": "Last updated: {{date}}",
+    "terms": {
+      "title": "Terms of use",
+      "intro": "These terms cover your use of ToDo. By creating an account you agree to them.",
+      "s1h": "Your account",
+      "s1": "You must give a real email address or mobile number and verify it. Keep your password private. You are responsible for what happens in your account.",
+      "s2h": "Acceptable use",
+      "s2": "Do not use ToDo to harass, threaten or abuse anyone; to share sexual content, content involving children, or anything illegal; to spam people; to pretend to be someone else; or to plan or carry out a crime. Do not try to break into other accounts or disrupt the service.",
+      "s3h": "What we can do",
+      "s3": "If you break these rules we may remove content and suspend or close your account. We keep removed content and related records for at least 180 days, as Indian law requires, and may share them with authorities when the law requires it.",
+      "s4h": "Your content",
+      "s4": "Your tasks are yours. You let us store and show them to you and the people you share them with, only to run the service.",
+      "s5h": "Complaints",
+      "s5": "Contact our grievance officer (see the Grievance contact page). We acknowledge complaints within 24 hours and aim to resolve them within 7 days.",
+      "s6h": "Changes",
+      "s6": "We will tell you before these terms change in a way that matters."
+    },
+    "privacy": {
+      "title": "Privacy policy",
+      "intro": "This policy explains what personal data ToDo collects, why, and the choices you have, in line with India's Digital Personal Data Protection Act, 2023.",
+      "s1h": "What we collect",
+      "s1": "Your name, email and/or mobile number, password (stored only as a secure hash), profile photo, language, theme and time zone; the tasks you create; and security records such as sign-in times, device type and IP address.",
+      "s2h": "Why we use it",
+      "s2": "To run your account and show you your tasks, to send one-time codes, to keep the service secure, and to meet legal duties. We do not sell your data or use it for advertising.",
+      "s3h": "Who we share it with",
+      "s3": "Service providers that run ToDo for us (hosting, email and SMS delivery, file storage, error tracking), under contracts. Authorities, only when Indian law requires it.",
+      "s4h": "How long we keep it",
+      "s4": "While your account is open. When you delete something, it is hidden immediately and permanently deleted after 180 days. When you delete your account, your sign-up details are kept in encrypted form for 180 days, as the IT Rules require, then deleted.",
+      "s5h": "Your rights",
+      "s5": "You can see and correct your details in Settings, download your data, withdraw consent by deleting your account, and complain to our grievance officer or to the Data Protection Board of India.",
+      "s6h": "Security",
+      "s6": "Data is encrypted in transit, passwords are hashed with Argon2, and access to stored data is limited and logged."
+    },
+    "grievance": {
+      "title": "Grievance contact",
+      "intro": "If you have a complaint about content, your account or your data, contact our grievance officer.",
+      "officer": "Grievance officer",
+      "officerValue": "[Name to be added before launch]",
+      "email": "Email",
+      "emailValue": "[grievance email to be added]",
+      "timelines": "We acknowledge every complaint within 24 hours and aim to resolve it within 7 days.",
+      "include": "Please include your registered email or mobile number and a short description. Do not send your password or any code."
+    }
+  },
+  "pages": {
+    "notFound": {
+      "title": "Page not found",
+      "body": "The page you're looking for doesn't exist.",
+      "home": "Go to Today"
+    },
+    "error": {
+      "title": "Something went wrong",
+      "body": "Please try again. If it keeps happening, reload the app."
+    },
+    "welcome": {
+      "loading": "Setting things up…"
+    }
+  },
+  "a11y": {
+    "loading": "Loading",
+    "openMenu": "Open menu",
+    "closeDialog": "Close dialog",
+    "required": "required",
+    "avatarOf": "Profile photo of {{name}}"
   }
 }

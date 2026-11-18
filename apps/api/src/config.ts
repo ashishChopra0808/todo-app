@@ -9,7 +9,7 @@ const schema = z
     APP_ENV: z.enum(['development', 'test', 'staging', 'production']).default('development'),
     PORT: z.coerce.number().int().default(3000),
     HOST: z.string().default('0.0.0.0'),
-    LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+    LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error', 'silent']).default('info'),
 
     DATABASE_URL: z.string().min(1),
     REDIS_URL: z.string().min(1),
@@ -17,10 +17,8 @@ const schema = z
     /** Public origin of the web app. The API is served on the same origin under /api. */
     APP_ORIGIN: z.url(),
     BETTER_AUTH_SECRET: z.string().min(32, 'BETTER_AUTH_SECRET must be at least 32 characters'),
-    /** base64 of 32 random bytes; encrypts legally retained records. */
-    DATA_ENCRYPTION_KEY: z
-      .string()
-      .refine((v) => Buffer.from(v, 'base64').length === 32, 'must be base64 of 32 bytes'),
+    /** Long random string; a 256-bit key is derived from it to encrypt legally retained records. */
+    DATA_ENCRYPTION_KEY: z.string().min(32, 'DATA_ENCRYPTION_KEY must be at least 32 characters'),
     IP_HASH_SALT: z.string().min(16),
 
     GOOGLE_CLIENT_ID: z.string().optional(),

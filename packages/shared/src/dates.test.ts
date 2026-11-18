@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { fromDueAt, isDueToday, isOverdue, localDayRange, toDueAt } from './dates';
+import {
+  canonicalTimeZone,
+  fromDueAt,
+  isDueToday,
+  isOverdue,
+  localDayRange,
+  toDueAt,
+} from './dates';
 
 const IST = 'Asia/Kolkata';
 
@@ -43,6 +50,11 @@ describe('due dates', () => {
     expect(isOverdue({ ...task, status: 'done' }, IST, new Date('2026-11-21T00:00:00Z'))).toBe(
       false,
     );
+  });
+
+  it('maps old time zone names (Chrome reports Asia/Calcutta) to current ones', () => {
+    expect(canonicalTimeZone('Asia/Calcutta')).toBe('Asia/Kolkata');
+    expect(canonicalTimeZone('Europe/London')).toBe('Europe/London');
   });
 
   it('rejects bad input', () => {

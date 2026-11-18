@@ -8,6 +8,7 @@ import { checkPassword } from '@todo/shared/password';
 import {
   LOGIN_LOCKOUT,
   OTP,
+  canonicalTimeZone,
   isPlaceholderEmail,
   isValidTimeZone,
   normalizePhone,
@@ -358,7 +359,7 @@ export function createAuth(deps: AuthDeps) {
               : matchLocale(parseAcceptLanguage(meta.acceptLanguage));
             const timeZone =
               typeof data.timeZone === 'string' && isValidTimeZone(data.timeZone)
-                ? data.timeZone
+                ? canonicalTimeZone(data.timeZone)
                 : 'Asia/Kolkata';
             return {
               data: {

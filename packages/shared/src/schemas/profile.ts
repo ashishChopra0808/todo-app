@@ -1,12 +1,13 @@
 import { z } from 'zod';
-import { isValidTimeZone } from '../dates';
+import { canonicalTimeZone, isValidTimeZone } from '../dates';
 import { LOCALES, THEMES } from '../enums';
 import { nameSchema } from './common';
 
 export const timeZoneSchema = z
   .string()
   .max(64)
-  .refine(isValidTimeZone, { error: 'invalid_time_zone' });
+  .refine(isValidTimeZone, { error: 'invalid_time_zone' })
+  .transform(canonicalTimeZone);
 
 export const profileUpdateSchema = z
   .object({

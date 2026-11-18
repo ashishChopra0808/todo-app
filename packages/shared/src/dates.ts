@@ -8,6 +8,30 @@ import { addDays, format, startOfDay } from 'date-fns';
  *   "today"/"overdue" compare calendar dates in the user's own time zone.
  */
 
+/**
+ * Old IANA names that browsers still report (Chrome reports India as "Asia/Calcutta").
+ * Some databases only know the current names, so we always store and query the current one.
+ */
+const TZ_ALIASES: Record<string, string> = {
+  'Asia/Calcutta': 'Asia/Kolkata',
+  'Asia/Katmandu': 'Asia/Kathmandu',
+  'Asia/Saigon': 'Asia/Ho_Chi_Minh',
+  'Asia/Rangoon': 'Asia/Yangon',
+  'Asia/Dacca': 'Asia/Dhaka',
+  'Asia/Thimbu': 'Asia/Thimphu',
+  'Asia/Ujung_Pandang': 'Asia/Makassar',
+  'Asia/Ulan_Bator': 'Asia/Ulaanbaatar',
+  'America/Buenos_Aires': 'America/Argentina/Buenos_Aires',
+  'America/Godthab': 'America/Nuuk',
+  'Atlantic/Faeroe': 'Atlantic/Faroe',
+  'Pacific/Ponape': 'Pacific/Pohnpei',
+  'Pacific/Truk': 'Pacific/Chuuk',
+};
+
+export function canonicalTimeZone(tz: string): string {
+  return TZ_ALIASES[tz] ?? tz;
+}
+
 export function isValidTimeZone(tz: string): boolean {
   try {
     new Intl.DateTimeFormat('en', { timeZone: tz });
