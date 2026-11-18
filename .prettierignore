@@ -7,3 +7,5 @@ test-results
 .outbox
 .storage
 packages/tokens/tokens.css
+lhci-report
+.lighthouseci

@@ -13,3 +13,5 @@ test-results
 .DS_Store
 dump.rdb
 *.rdb
+lhci-report
+.lighthouseci

@@ -91,6 +91,76 @@ jobs:
           path: apps/web/playwright-report
           retention-days: 7
 
+  lighthouse:
+    name: Lighthouse (performance + accessibility)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: checks
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: todo_lh
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+    env:
+      NODE_ENV: test
+      APP_ENV: test
+      PORT: '3100'
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/todo_lh
+      REDIS_URL: redis://localhost:6379/3
+      APP_ORIGIN: http://localhost:5180
+      BETTER_AUTH_SECRET: lighthouse-ci-secret-lighthouse-ci-secret
+      DATA_ENCRYPTION_KEY: lighthouse-ci-encryption-key-not-secret-123
+      IP_HASH_SALT: lighthouse-ci-salt
+      EMAIL_DRIVER: log
+      SMS_DRIVER: log
+      STORAGE_DRIVER: local
+      RATE_LIMITS_ENABLED: 'false'
+      RUN_WORKER_IN_PROCESS: 'false'
+      TRUST_PROXY_HOPS: '0'
+      LOG_LEVEL: warn
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Database with demo data
+        run: pnpm --filter @todo/api db:migrate && pnpm --filter @todo/api db:seed
+      - name: Start API
+        run: (pnpm --filter @todo/api exec tsx src/server.ts > api.log 2>&1 &)
+      - name: Build and serve the web app (production build, real security headers)
+        run: |
+          pnpm --filter @todo/web build
+          (VITE_API_PROXY=http://localhost:3100 pnpm --filter @todo/web exec vite preview --port 5180 --strictPort > web.log 2>&1 &)
+          for i in $(seq 1 60); do curl -sf http://localhost:5180/api/health && curl -sf -o /dev/null http://localhost:5180/sign-in && break; sleep 1; done
+        env:
+          VITE_APP_VERSION: ${{ github.sha }}
+      - name: Sign in the demo user
+        run: |
+          curl -sf -c jar.txt -H 'origin: http://localhost:5180' -H 'content-type: application/json' \
+            -d '{"email":"demo@todo.test","password":"mango-river-lamp-91"}' http://localhost:5180/api/auth/sign-in/email > /dev/null
+          echo "LHCI_COOKIE=$(awk '$6 ~ /session_token/ {print $6"="$7}' jar.txt)" >> "$GITHUB_ENV"
+      - name: Run Lighthouse
+        run: pnpm --filter @todo/web exec lhci autorun --config=lighthouserc.cjs
+      - name: Scores
+        if: always()
+        run: node apps/web/scripts/lhci-summary.mjs || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lighthouse-report
+          path: apps/web/lhci-report
+          retention-days: 14
+
   docker:
     name: API Docker image builds
     runs-on: ubuntu-latest
