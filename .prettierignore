@@ -1,0 +1,8 @@
+pnpm-lock.yaml
+dist
+coverage
+apps/api/drizzle/meta
+playwright-report
+test-results
+.outbox
+.storage

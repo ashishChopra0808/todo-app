@@ -1,0 +1,103 @@
+/* Generated from packages/tokens/src/index.ts — do not edit by hand. Run: pnpm --filter @todo/tokens build:css */
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --radius-input: 12px;
+  --radius-card: 16px;
+  --radius-full: 9999px;
+  --touch-target: 44px;
+  --font-screen-title-size: 1.625rem;
+  --font-screen-title-line: 2rem;
+  --font-screen-title-weight: 600;
+  --font-section-size: 1.25rem;
+  --font-section-line: 1.75rem;
+  --font-section-weight: 600;
+  --font-task-title-size: 0.9375rem;
+  --font-task-title-line: 1.375rem;
+  --font-task-title-weight: 500;
+  --font-body-size: 0.9375rem;
+  --font-body-line: 1.375rem;
+  --font-body-weight: 400;
+  --font-meta-size: 0.78125rem;
+  --font-meta-line: 1.125rem;
+  --font-meta-weight: 400;
+  --font-family:
+    Inter, 'Noto Sans Devanagari', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+  --color-bg: #f6f5f1;
+  --color-surface: #ffffff;
+  --color-border: #e4e2dc;
+  --color-text: #1d1f1e;
+  --color-text-muted: #5d625f;
+  --color-accent: #2f6b5f;
+  --color-accent-text: #ffffff;
+  --color-accent-soft: #e3eeea;
+  --color-alert: #b4472f;
+  --color-alert-text: #ffffff;
+  --color-focus: #2f6b5f;
+  --color-priority-high: #b4472f;
+  --color-priority-medium: #a0710f;
+  --color-priority-low: #7a7f7c;
+  --color-status-todo-bg: #efeee9;
+  --color-status-progress-bg: #e5ebf2;
+  --color-status-done-bg: #e3eeea;
+  --color-status-text: #1d1f1e;
+  --color-overlay: rgba(20, 22, 21, 0.45);
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --color-bg: #141615;
+  --color-surface: #1e2120;
+  --color-border: #2f3432;
+  --color-text: #ecedea;
+  --color-text-muted: #a8aeaa;
+  --color-accent: #86c5b5;
+  --color-accent-text: #0f2420;
+  --color-accent-soft: #20342f;
+  --color-alert: #ee9479;
+  --color-alert-text: #2a0f08;
+  --color-focus: #86c5b5;
+  --color-priority-high: #ee9479;
+  --color-priority-medium: #e0b04a;
+  --color-priority-low: #8d938f;
+  --color-status-todo-bg: #2a2e2c;
+  --color-status-progress-bg: #2f4865;
+  --color-status-done-bg: #24554b;
+  --color-status-text: #ecedea;
+  --color-overlay: rgba(0, 0, 0, 0.6);
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-theme='system'] {
+    color-scheme: dark;
+    --color-bg: #141615;
+    --color-surface: #1e2120;
+    --color-border: #2f3432;
+    --color-text: #ecedea;
+    --color-text-muted: #a8aeaa;
+    --color-accent: #86c5b5;
+    --color-accent-text: #0f2420;
+    --color-accent-soft: #20342f;
+    --color-alert: #ee9479;
+    --color-alert-text: #2a0f08;
+    --color-focus: #86c5b5;
+    --color-priority-high: #ee9479;
+    --color-priority-medium: #e0b04a;
+    --color-priority-low: #8d938f;
+    --color-status-todo-bg: #2a2e2c;
+    --color-status-progress-bg: #2f4865;
+    --color-status-done-bg: #24554b;
+    --color-status-text: #ecedea;
+    --color-overlay: rgba(0, 0, 0, 0.6);
+  }
+}

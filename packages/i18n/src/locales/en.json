@@ -1,0 +1,14 @@
+{
+  "email": {
+    "otp": {
+      "subject": "{{code}} is your ToDo code",
+      "verify": "Your ToDo verification code is {{code}}.\n\nIt expires in {{minutes}} minutes. If you did not ask for this code, you can ignore this email.",
+      "reset": "Your ToDo password reset code is {{code}}.\n\nIt expires in {{minutes}} minutes. If you did not ask to reset your password, ignore this email — your password stays the same.",
+      "change": "Use {{code}} to confirm this email address for your ToDo account.\n\nIt expires in {{minutes}} minutes."
+    }
+  },
+  "sms": {
+    "otp": "{{code}} is your ToDo verification code. Valid for {{minutes}} min. Do not share it with anyone.",
+    "reset": "{{code}} is your ToDo password reset code. Valid for {{minutes}} min. Do not share it with anyone."
+  }
+}
