@@ -3,7 +3,8 @@ import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { TASK_PRIORITIES, TASK_STATUSES } from '@todo/shared';
-import { taskPagesOptions, useMe } from '../api/queries';
+import { taskPagesOptions, useGroups, useMe, useMembers } from '../api/queries';
+import { Select } from '../components/Select';
 import { Icon } from '../components/Icon';
 import { Workspace } from '../components/Workspace';
 import { EmptyState, ErrorState, LoadingList, Spinner } from '../components/States';
@@ -48,12 +49,30 @@ export function TasksPage() {
     taskPagesOptions({ ...params, status: [...status], priority: [...priority] }),
   );
   const items = list.data?.pages.flatMap((p) => p.items) ?? [];
+  const groups = useGroups();
+  const groupId = search.group && search.group !== 'personal' ? search.group : null;
+  const members = useMembers(groupId);
   const activeFilters = [
     status.length,
     priority.length,
     search.dueFrom ? 1 : 0,
     search.dueTo ? 1 : 0,
+    search.group ? 1 : 0,
+    search.assignee ? 1 : 0,
   ].filter(Boolean).length;
+  const setParam = (key: 'group' | 'assignee', value: string) =>
+    void navigate({
+      search: (s: TasksSearch) => ({
+        ...s,
+        [key]: value === 'any' ? undefined : value,
+        // A person picked from one group's members doesn't apply to another group.
+        ...(key === 'group' && s.assignee && !['me', 'none'].includes(s.assignee)
+          ? { assignee: undefined }
+          : {}),
+      }),
+      replace: true,
+    });
+  const meId = me.data?.id;
   const filtering = !!search.q || activeFilters > 0;
 
   const toggleIn = (key: 'status' | 'priority', value: string) => {
@@ -67,6 +86,7 @@ export function TasksPage() {
 
   const tabs = [
     { id: 'mine', label: t('tasks.tabs.mine') },
+    { id: 'assigned_by_me', label: t('tasks.tabs.assignedByMe') },
     { id: 'overdue', label: t('tasks.tabs.overdue') },
     { id: 'completed', label: t('tasks.tabs.completed') },
   ] as const;
@@ -140,7 +160,35 @@ export function TasksPage() {
           </div>
           {showFilters && (
             <div id="filters" className="card filters">
-              {tab === 'mine' && (
+              <div className="filters__dates">
+                <Select
+                  label={t('tasks.filters.group')}
+                  value={search.group ?? 'any'}
+                  onChange={(v) => setParam('group', v)}
+                  options={[
+                    { value: 'any', label: t('tasks.filters.anyGroup') },
+                    { value: 'personal', label: t('task.personal') },
+                    ...(groups.data ?? []).map((g) => ({
+                      value: g.id,
+                      label: `${g.icon ? `${g.icon} ` : ''}${g.name}`,
+                    })),
+                  ]}
+                />
+                <Select
+                  label={t('tasks.filters.assignee')}
+                  value={search.assignee ?? 'any'}
+                  onChange={(v) => setParam('assignee', v)}
+                  options={[
+                    { value: 'any', label: t('tasks.filters.anyone') },
+                    { value: 'me', label: t('task.me') },
+                    { value: 'none', label: t('task.unassigned') },
+                    ...(members.data ?? [])
+                      .filter((m) => m.id !== meId)
+                      .map((m) => ({ value: m.id, label: m.name })),
+                  ]}
+                />
+              </div>
+              {tab !== 'overdue' && tab !== 'completed' && (
                 <fieldset className="fieldset">
                   <legend className="section-title">{t('tasks.filters.status')}</legend>
                   <div className="chips">
@@ -233,7 +281,7 @@ export function TasksPage() {
               <p className="visually-hidden">{t('tasks.count', { count: items.length })}</p>
               <ul className="task-list">
                 {items.map((task) => (
-                  <TaskRow key={task.id} task={task} tz={tz} />
+                  <TaskRow key={task.id} task={task} tz={tz} meId={meId} />
                 ))}
               </ul>
               {list.hasNextPage && (

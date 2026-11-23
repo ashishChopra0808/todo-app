@@ -57,7 +57,10 @@
     "views": "Views",
     "myTasks": "My tasks",
     "overdue": "Overdue",
-    "completed": "Completed"
+    "completed": "Completed",
+    "groups": "Groups",
+    "assignedByMe": "Assigned by me",
+    "newGroup": "New group"
   },
   "language": {
     "label": "Language",
@@ -173,8 +176,16 @@
       "invalid": "This isn't valid.",
       "invalid_otp": "Enter the 6 digits.",
       "confirm_required": "Type DELETE to confirm.",
-      "invalid_time_zone": "Choose a time zone from the list."
-    }
+      "invalid_time_zone": "Choose a time zone from the list.",
+      "not_a_member": "Pick someone in this group."
+    },
+    "invite_invalid": "This invite can't be used.",
+    "group_full": "This group is full. A group can have up to 50 members.",
+    "too_many_groups": "You can be in up to 50 groups. Leave one to join another.",
+    "last_admin": "A group needs at least one admin. Make someone else an admin first.",
+    "daily_limit": "You've reached today's limit for this. Try again tomorrow.",
+    "not_a_member": "That person isn't in this group.",
+    "sms_unavailable": "Invites by SMS aren't available yet. Share the link or code instead."
   },
   "today": {
     "greeting": {
@@ -194,7 +205,13 @@
     "empty": {
       "title": "Nothing due today",
       "body": "Enjoy the calm, or add something you want to get done.",
-      "action": "Add a task"
+      "action": "Add a task",
+      "scope": "Nothing due today here."
+    },
+    "chips": {
+      "label": "Show tasks from",
+      "all": "All",
+      "personal": "Personal"
     }
   },
   "tasks": {
@@ -203,7 +220,8 @@
       "label": "Task views",
       "mine": "My tasks",
       "overdue": "Overdue",
-      "completed": "Completed"
+      "completed": "Completed",
+      "assignedByMe": "Assigned by me"
     },
     "search": {
       "label": "Search tasks",
@@ -217,13 +235,19 @@
       "dueTo": "Due until",
       "clear": "Clear filters",
       "active_one": "{{count}} filter on",
-      "active_other": "{{count}} filters on"
+      "active_other": "{{count}} filters on",
+      "group": "List",
+      "anyGroup": "All lists",
+      "assignee": "Assigned to",
+      "anyone": "Anyone"
     },
     "empty": {
       "mine": "No open tasks. Add one to get started.",
       "overdue": "Nothing overdue. Nice work.",
       "completed": "Tasks you finish will show up here.",
-      "search": "No tasks match your search."
+      "search": "No tasks match your search.",
+      "assigned_by_me": "Tasks you give to other people show up here.",
+      "all": "No open tasks."
     },
     "loadMore": "Show more",
     "count_one": "{{count}} task",
@@ -242,7 +266,9 @@
       "priority": "Priority",
       "status": "Status",
       "assignee": "Assigned to",
-      "createdBy": "Created by"
+      "createdBy": "Created by",
+      "group": "List",
+      "assignTo": "Assign to"
     },
     "when": {
       "none": "No date",
@@ -309,17 +335,46 @@
       "due_removed": "{{name}} removed the due date",
       "priority_changed": "{{name}} set priority to {{to}}",
       "status_changed": "{{name}} marked it {{to}}",
-      "assigned": "{{name}} assigned it",
+      "assigned": "{{name}} assigned it to {{to}}",
       "unassigned": "{{name}} unassigned it",
       "deleted": "{{name}} deleted this task",
       "restored": "{{name}} restored this task",
-      "removed": "Removed by a moderator"
+      "removed": "Removed by a moderator",
+      "youLower": "you",
+      "unassignedFrom": "{{name}} unassigned {{from}}",
+      "moved": "{{name}} moved it to {{to}}",
+      "movedPersonal": "{{name}} moved it to Personal",
+      "commented": "{{name}} commented"
     },
     "markDoneShort": "Mark as done",
     "markNotDoneShort": "Mark as not done",
     "panel": {
       "close": "Close details",
       "label": "Task details"
+    },
+    "where": "Where & who",
+    "me": "Me",
+    "unassigned": "Unassigned",
+    "assignedTo": "Assigned to {{name}}",
+    "assignedToYou": "Assigned to you",
+    "more": "More actions",
+    "report": "Report task",
+    "comments": {
+      "title": "Comments",
+      "count_one": "{{count}} comment",
+      "count_other": "{{count}} comments",
+      "empty": "No comments yet.",
+      "label": "Write a comment",
+      "placeholder": "Add a comment",
+      "send": "Send",
+      "edited": "edited",
+      "editLabel": "Edit your comment",
+      "yourComment": "your comment",
+      "report": "Report",
+      "removed": "Removed by a moderator",
+      "deletedUser": "Deleted account",
+      "deleteTitle": "Delete this comment?",
+      "deleted": "Comment deleted."
     }
   },
   "settings": {
@@ -465,5 +520,189 @@
     "closeDialog": "Close dialog",
     "required": "required",
     "avatarOf": "Profile photo of {{name}}"
+  },
+  "groups": {
+    "title": "Groups",
+    "new": "New group",
+    "empty": {
+      "title": "No groups yet",
+      "body": "Make a group for your family, flat or office to share tasks and see what's done.",
+      "action": "Create a group"
+    },
+    "members_one": "{{count}} member",
+    "members_other": "{{count}} members",
+    "openTasks_one": "{{count}} open task",
+    "openTasks_other": "{{count}} open tasks",
+    "admin": "Admin",
+    "member": "Member",
+    "you": "you",
+    "membersLabel": "Members",
+    "create": {
+      "title": "New group",
+      "name": "Group name",
+      "namePlaceholder": "e.g. Sharma family, Flat 4B",
+      "icon": "Icon",
+      "noIcon": "None",
+      "submit": "Create group",
+      "done": "Group created. Invite people to join."
+    },
+    "switcher": "Switch group",
+    "chips": {
+      "label": "Show",
+      "all": "All tasks",
+      "mine": "Mine",
+      "unassigned": "Unassigned"
+    },
+    "sections": {
+      "todo": "To do",
+      "inProgress": "In progress",
+      "done": "Done"
+    },
+    "showDone": "Show done ({{count}})",
+    "hideDone": "Hide done",
+    "emptyTasks": "No tasks in this group yet.",
+    "emptyFiltered": "Nothing here right now.",
+    "addTask": "Add task",
+    "invite": "Invite",
+    "settings": "Group settings",
+    "notFound": "This group doesn't exist, or you're not in it."
+  },
+  "groupSettings": {
+    "title": "Group settings",
+    "details": "Name and icon",
+    "saved": "Group saved.",
+    "membersCanInvite": "Members can invite people",
+    "membersCanInviteHint": "When this is off, only admins can invite.",
+    "members": "Members",
+    "makeAdmin": "Make admin",
+    "makeMember": "Make member",
+    "remove": "Remove",
+    "removeTitle": "Remove {{name}}?",
+    "removeBody": "Their open tasks in this group become unassigned. They can come back only with a new invite.",
+    "removed": "{{name}} was removed.",
+    "roleChanged": "Role updated.",
+    "invites": "Active invites",
+    "noInvites": "No active invites.",
+    "inviteLink": "Link and code",
+    "inviteEmail": "Email to {{target}}",
+    "invitePhone": "SMS to {{target}}",
+    "inviteUses": "{{used}} of {{max}} used · expires {{date}}",
+    "revoke": "Revoke",
+    "revoked": "Invite revoked.",
+    "danger": "Leave or delete",
+    "leave": "Leave group",
+    "leaveTitle": "Leave {{name}}?",
+    "leaveBody": "You'll lose access to its tasks. Your open tasks there become unassigned.",
+    "left": "You left {{name}}.",
+    "delete": "Delete group",
+    "deleteTitle": "Delete {{name}}?",
+    "deleteBody": "The group and all its tasks disappear for everyone right away.",
+    "deleted": "Group deleted.",
+    "lastAdmin": "Make someone else an admin before you leave.",
+    "onlyMember": "You're the only member. Delete the group instead.",
+    "report": "Report group"
+  },
+  "invite": {
+    "title": "Invite to {{name}}",
+    "linkTitle": "Share a link",
+    "making": "Making a link…",
+    "code": "Invite code",
+    "codeHint": "Works for {{days}} days, for up to {{uses}} people.",
+    "share": "Share link",
+    "shareText": "Join “{{group}}” on ToDo",
+    "copyLink": "Copy link",
+    "copyCode": "Copy code",
+    "copied": "Link copied.",
+    "codeCopied": "Code copied.",
+    "copyFailed": "Couldn't copy. Select the code and copy it yourself.",
+    "directTitle": "Invite one person",
+    "targetHint": "Only the account with this verified email or number can use it. It works once, for 7 days.",
+    "send": "Send invite",
+    "sentEmail": "Invite sent to {{target}}.",
+    "sentPhone": "Invite sent by SMS to {{target}}."
+  },
+  "join": {
+    "title": "Join a group",
+    "invitedBy": "{{name}} invited you to join",
+    "join": "Join group",
+    "joined": "You joined {{name}}.",
+    "open": "Open group",
+    "alreadyMember": "You're already in this group.",
+    "signInFirst": "Log in or create an account to join. We'll bring you back here.",
+    "signIn": "Log in",
+    "signUp": "Create an account",
+    "restrictedEmail": "This invite was sent to one email address. Use the account with that email.",
+    "restrictedPhone": "This invite was sent to one mobile number. Use the account with that number.",
+    "haveCode": "Have an invite code?",
+    "badCode": "Invite codes have 10 letters and numbers, like ABCDE-FGH23.",
+    "invalid": {
+      "title": "This invite can't be used",
+      "expired": "It has expired. Ask for a new one.",
+      "revoked": "It was cancelled. Ask for a new one.",
+      "used_up": "It has already been used. Ask for a new one.",
+      "not_found": "We couldn't find it. Check the link or code.",
+      "wrong_account": "It was sent to a different email or number. Log in with that account, or ask for a new invite."
+    }
+  },
+  "report": {
+    "title": {
+      "task": "Report this task",
+      "comment": "Report this comment",
+      "user": "Report {{name}}",
+      "group": "Report this group"
+    },
+    "reason": "What's wrong?",
+    "pickReason": "Choose a reason.",
+    "reasons": {
+      "spam": "Spam or scam",
+      "harassment": "Harassment or bullying",
+      "hate": "Hate speech",
+      "sexual": "Sexual content",
+      "child_safety": "Puts a child at risk",
+      "violence": "Violence or threats",
+      "illegal": "Something illegal",
+      "impersonation": "Pretending to be someone",
+      "other": "Something else"
+    },
+    "details": "Anything else we should know?",
+    "next": "We review reports within 24 hours. If something breaks our rules we remove it, and we may suspend the account. We don't tell anyone who reported them.",
+    "submit": "Send report",
+    "sent": "Thanks. We'll review it."
+  },
+  "admin": {
+    "title": "Reports",
+    "tabs": "Report status",
+    "list": "Reports",
+    "status": {
+      "open": "Open",
+      "actioned": "Removed",
+      "dismissed": "Dismissed"
+    },
+    "targets": {
+      "task": "Task",
+      "comment": "Comment",
+      "user": "Person",
+      "group": "Group"
+    },
+    "empty": "No reports here.",
+    "pick": "Choose a report to review it.",
+    "reportedBy": "Reported by {{name}}",
+    "sameTarget_one": "{{count}} open report on this",
+    "sameTarget_other": "{{count}} open reports on this",
+    "details": "Reporter's note",
+    "snapshot": "When it was reported",
+    "current": "Now",
+    "context": "Context",
+    "purged": "No longer stored.",
+    "owner": "Responsible person",
+    "suspended": "Suspended",
+    "unsuspend": "Lift suspension",
+    "unsuspended": "Suspension lifted.",
+    "note": "Note for the record (optional)",
+    "alsoSuspend": "Also suspend {{name}}",
+    "remove": "Remove content",
+    "suspendUser": "Suspend account",
+    "dismiss": "Dismiss",
+    "closed": "Report closed."
   }
 }

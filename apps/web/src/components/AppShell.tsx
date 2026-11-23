@@ -1,30 +1,37 @@
-import { Link, Outlet, useRouterState, useSearch } from '@tanstack/react-router';
-import { useEffect } from 'react';
+import { Link, Outlet, useNavigate, useRouterState, useSearch } from '@tanstack/react-router';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useMe, useTaskCounts } from '../api/queries';
+import { useGroups, useMe, useTaskCounts } from '../api/queries';
+import { takePendingJoin } from '../lib/pending-join';
 import { applyLocale } from '../lib/i18n';
 import { applyTheme } from '../lib/theme';
 import { Avatar } from './Avatar';
+import { GroupIcon } from './GroupBits';
 import { Icon, type IconName } from './Icon';
+import { NewGroupDialog } from './NewGroupDialog';
 
 function NavLinks() {
   const { t } = useTranslation();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const counts = useTaskCounts();
   const items: Array<{
-    to: '/today' | '/tasks' | '/settings';
+    to: '/today' | '/tasks' | '/groups' | '/settings';
     label: string;
     icon: IconName;
     badge?: number;
   }> = [
     { to: '/today', label: t('nav.today'), icon: 'sun', badge: counts.data?.overdue || undefined },
     { to: '/tasks', label: t('nav.tasks'), icon: 'list' },
+    { to: '/groups', label: t('nav.groups'), icon: 'users' },
     { to: '/settings', label: t('nav.settings'), icon: 'settings' },
   ];
   return (
     <>
       {items.map((i) => {
-        const current = path === i.to || (i.to === '/tasks' && path.startsWith('/tasks'));
+        const current =
+          path === i.to ||
+          (i.to === '/tasks' && path.startsWith('/tasks')) ||
+          (i.to === '/groups' && path.startsWith('/groups'));
         return (
           <Link
             key={i.to}
@@ -55,11 +62,13 @@ function SidebarNav() {
   const search = useSearch({ strict: false }) as { tab?: string };
   const counts = useTaskCounts().data;
   const tab = path === '/tasks' ? (search.tab ?? 'mine') : null;
+  const groups = useGroups();
+  const [creating, setCreating] = useState(false);
   const views: Array<{
     key: string;
     label: string;
     to: '/today' | '/tasks';
-    tab?: 'overdue' | 'completed';
+    tab?: 'overdue' | 'completed' | 'assigned_by_me';
     count?: number;
     alert?: boolean;
     current: boolean;
@@ -77,6 +86,13 @@ function SidebarNav() {
       to: '/tasks',
       count: counts?.open,
       current: tab === 'mine',
+    },
+    {
+      key: 'assigned_by_me',
+      label: t('nav.assignedByMe'),
+      to: '/tasks',
+      tab: 'assigned_by_me',
+      current: tab === 'assigned_by_me',
     },
     {
       key: 'overdue',
@@ -118,6 +134,46 @@ function SidebarNav() {
           </li>
         ))}
       </ul>
+      <div className="sidebar__groups">
+        <h2 className="sidebar__heading" id="sidebar-groups">
+          <Link
+            to="/groups"
+            className="sidebar__heading-link"
+            aria-current={path === '/groups' ? 'page' : undefined}
+          >
+            {t('nav.groups')}
+          </Link>
+        </h2>
+        <ul className="sidebar__views" aria-labelledby="sidebar-groups">
+          {groups.data?.map((g) => (
+            <li key={g.id}>
+              <Link
+                to="/groups/$id"
+                params={{ id: g.id }}
+                className="nav-link"
+                aria-current={path.startsWith(`/groups/${g.id}`) ? 'page' : undefined}
+              >
+                <span className="row" style={{ gap: 8, flexWrap: 'nowrap', minInlineSize: 0 }}>
+                  <GroupIcon group={g} size="sm" />
+                  <span className="sidebar__group-name">{g.name}</span>
+                </span>
+                {g.openTaskCount > 0 && <span className="sidebar__count">{g.openTaskCount}</span>}
+              </Link>
+            </li>
+          ))}
+          <li>
+            <button
+              type="button"
+              className="nav-link sidebar__new"
+              onClick={() => setCreating(true)}
+            >
+              <Icon name="plus" size={18} />
+              {t('nav.newGroup')}
+            </button>
+          </li>
+        </ul>
+      </div>
+      <NewGroupDialog open={creating} onClose={() => setCreating(false)} />
       <Link
         to="/settings"
         className="sidebar__me"
@@ -137,7 +193,15 @@ function SidebarNav() {
 export function AppShell() {
   const { t } = useTranslation();
   const me = useMe();
+  const navigate = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
+
+  // Someone opened an invite, then signed up or logged in: take them back to it.
+  useEffect(() => {
+    if (!me.data) return;
+    const code = takePendingJoin();
+    if (code) void navigate({ to: '/join/$code', params: { code }, replace: true });
+  }, [me.data, navigate]);
 
   // The profile is the source of truth for language and theme once signed in.
   useEffect(() => {

@@ -1,8 +1,10 @@
 import { Link } from '@tanstack/react-router';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isOverdue } from '@todo/shared';
-import { TODAY_PARAMS, useMe, useTaskList } from '../api/queries';
+import { TODAY_PARAMS, useGroups, useMe, useTaskList } from '../api/queries';
 import { Avatar } from '../components/Avatar';
+import { FilterChips } from '../components/GroupBits';
 import { Workspace } from '../components/Workspace';
 import { EmptyState, ErrorState, LoadingList } from '../components/States';
 import { TaskRow } from '../components/TaskBits';
@@ -15,7 +17,17 @@ export function TodayPage() {
   const me = useMe();
   const tz = me.data?.timeZone ?? 'Asia/Kolkata';
   const list = useTaskList(TODAY_PARAMS);
-  const items = list.data?.items ?? [];
+  const groups = useGroups();
+  // Group chips filter what's already loaded: switching is instant and works offline.
+  const [scope, setScope] = useState<string>('all');
+  const all = list.data?.items ?? [];
+  const items =
+    scope === 'all'
+      ? all
+      : scope === 'personal'
+        ? all.filter((x) => !x.groupId)
+        : all.filter((x) => x.groupId === scope);
+  const meId = me.data?.id;
   const overdue = items.filter((x) => isOverdue(x, tz));
   const dueToday = items.filter((x) => !isOverdue(x, tz) && x.status !== 'done');
   const doneToday = items.filter((x) => x.status === 'done');
@@ -57,10 +69,31 @@ export function TodayPage() {
           </div>
         </header>
 
+        {!!groups.data?.length && (
+          <FilterChips
+            legend={t('today.chips.label')}
+            name="today-scope"
+            value={groups.data.some((g) => g.id === scope) || scope === 'personal' ? scope : 'all'}
+            onChange={setScope}
+            options={[
+              { value: 'all', label: t('today.chips.all') },
+              { value: 'personal', label: t('today.chips.personal') },
+              ...groups.data.map((g) => ({
+                value: g.id,
+                label: g.name,
+                icon: g.icon,
+                isGroup: true,
+              })),
+            ]}
+          />
+        )}
+
         {list.isPending ? (
           <LoadingList rows={4} />
         ) : list.isError ? (
           <ErrorState message={errorMessage(list.error, t)} onRetry={() => void list.refetch()} />
+        ) : items.length === 0 && all.length > 0 ? (
+          <EmptyState title={t('today.empty.scope')} />
         ) : items.length === 0 ? (
           <EmptyState
             title={t('today.empty.title')}
@@ -103,7 +136,7 @@ export function TodayPage() {
                 </h2>
                 <ul className="task-list">
                   {overdue.map((task) => (
-                    <TaskRow key={task.id} task={task} tz={tz} />
+                    <TaskRow key={task.id} task={task} tz={tz} meId={meId} />
                   ))}
                 </ul>
               </section>
@@ -115,7 +148,7 @@ export function TodayPage() {
                 </h2>
                 <ul className="task-list">
                   {dueToday.map((task) => (
-                    <TaskRow key={task.id} task={task} tz={tz} />
+                    <TaskRow key={task.id} task={task} tz={tz} meId={meId} />
                   ))}
                 </ul>
               </section>
@@ -127,7 +160,7 @@ export function TodayPage() {
                 </h2>
                 <ul className="task-list">
                   {doneToday.map((task) => (
-                    <TaskRow key={task.id} task={task} tz={tz} />
+                    <TaskRow key={task.id} task={task} tz={tz} meId={meId} />
                   ))}
                 </ul>
               </section>

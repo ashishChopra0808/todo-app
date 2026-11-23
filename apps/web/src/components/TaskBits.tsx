@@ -6,6 +6,7 @@ import { errorMessage } from '../lib/errors';
 import { formatDue } from '../lib/format';
 import { intlLocale } from '../lib/i18n';
 import { WIDE_QUERY, useMediaQuery } from '../lib/useMediaQuery';
+import { GroupIcon, MiniAvatar } from './GroupBits';
 import { Icon } from './Icon';
 import { useToast } from './Toasts';
 
@@ -65,7 +66,18 @@ export function TickButton({ task }: { task: TaskDto }) {
   );
 }
 
-export function TaskRow({ task, tz }: { task: TaskDto; tz: string }) {
+export function TaskRow({
+  task,
+  tz,
+  hideGroup = false,
+  meId,
+}: {
+  task: TaskDto;
+  tz: string;
+  /** On a group's own page the group name would repeat on every row. */
+  hideGroup?: boolean;
+  meId?: string;
+}) {
   const { t } = useTranslation();
   const wide = useMediaQuery(WIDE_QUERY);
   const search = useSearch({ strict: false }) as { task?: string };
@@ -94,6 +106,12 @@ export function TaskRow({ task, tz }: { task: TaskDto; tz: string }) {
       >
         <span className="task-row__title">{task.title}</span>
         <span className="task-meta">
+          {task.group && !hideGroup && (
+            <span className="task-meta__item">
+              <GroupIcon group={task.group} size="sm" />
+              {task.group.name}
+            </span>
+          )}
           {task.dueAt && (
             <span className={`task-meta__item${due.overdue ? ' task-meta__item--alert' : ''}`}>
               <Icon name="clock" size={14} />
@@ -103,8 +121,32 @@ export function TaskRow({ task, tz }: { task: TaskDto; tz: string }) {
           )}
           {task.status === 'in_progress' && <StatusPill status="in_progress" />}
           {task.priority !== 'medium' && <PriorityDot priority={task.priority} />}
+          {task.commentCount > 0 && (
+            <span className="task-meta__item">
+              <Icon name="message" size={14} />
+              {task.commentCount}
+              <span className="visually-hidden">
+                {' '}
+                {t('task.comments.count', { count: task.commentCount })}
+              </span>
+            </span>
+          )}
         </span>
       </Link>
+      {task.group &&
+        (task.assignee ? (
+          <MiniAvatar
+            person={task.assignee}
+            size={28}
+            label={
+              task.assignee.id === meId
+                ? t('task.assignedToYou')
+                : t('task.assignedTo', { name: task.assignee.name })
+            }
+          />
+        ) : (
+          <span className="task-row__unassigned">{t('task.unassigned')}</span>
+        ))}
     </li>
   );
 }

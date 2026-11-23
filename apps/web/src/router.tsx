@@ -11,6 +11,7 @@ import { ApiError } from './api/client';
 import {
   TODAY_PARAMS,
   countsOptions,
+  groupsOptions,
   meQuery,
   taskListOptions,
   taskPagesOptions,
@@ -18,6 +19,7 @@ import {
 import { AppShell } from './components/AppShell';
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { ErrorPage, NotFoundPage } from './routes/misc';
+import type { GroupSearch } from './routes/groups';
 import type { TasksSearch } from './routes/tasks-params';
 import { tasksParams } from './routes/tasks-params';
 
@@ -37,6 +39,14 @@ const NewTaskPage = lazyRouteComponent(() => import('./routes/task-form'), 'NewT
 const EditTaskPage = lazyRouteComponent(() => import('./routes/task-form'), 'EditTaskPage');
 const TaskDetailPage = lazyRouteComponent(() => import('./routes/task-detail'), 'TaskDetailPage');
 const SettingsPage = lazyRouteComponent(() => import('./routes/settings'), 'SettingsPage');
+const GroupsPage = lazyRouteComponent(() => import('./routes/groups'), 'GroupsPage');
+const GroupPage = lazyRouteComponent(() => import('./routes/groups'), 'GroupPage');
+const GroupSettingsPage = lazyRouteComponent(
+  () => import('./routes/group-settings'),
+  'GroupSettingsPage',
+);
+const JoinPage = lazyRouteComponent(() => import('./routes/join'), 'JoinPage');
+const AdminPage = lazyRouteComponent(() => import('./routes/admin'), 'AdminPage');
 
 interface Ctx {
   queryClient: QueryClient;
@@ -158,6 +168,7 @@ const today = createRoute({
   loader: ({ context }) => {
     void context.queryClient.prefetchQuery(taskListOptions(TODAY_PARAMS));
     void context.queryClient.prefetchQuery(countsOptions);
+    void context.queryClient.prefetchQuery(groupsOptions);
   },
   component: TodayPage,
 });
@@ -165,7 +176,12 @@ const tasks = createRoute({
   getParentRoute: () => appRoute,
   path: '/tasks',
   validateSearch: (s: Record<string, unknown>): TasksSearch => ({
-    tab: s.tab === 'overdue' || s.tab === 'completed' ? s.tab : undefined,
+    tab:
+      s.tab === 'overdue' || s.tab === 'completed' || s.tab === 'assigned_by_me'
+        ? s.tab
+        : undefined,
+    group: str(s.group),
+    assignee: str(s.assignee),
     q: str(s.q),
     status: str(s.status),
     priority: str(s.priority),
@@ -187,6 +203,8 @@ const tasks = createRoute({
 const newTask = createRoute({
   getParentRoute: () => appRoute,
   path: '/tasks/new',
+  validateSearch: (s: Record<string, unknown>): { group?: string } => ({ group: str(s.group) }),
+  loader: ({ context }) => void context.queryClient.prefetchQuery(groupsOptions),
   component: NewTaskPage,
 });
 const taskDetail = createRoute({
@@ -204,6 +222,43 @@ const settings = createRoute({
   path: '/settings',
   component: SettingsPage,
 });
+const groupsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/groups',
+  loader: ({ context }) => void context.queryClient.prefetchQuery(groupsOptions),
+  component: GroupsPage,
+});
+const group = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/groups/$id',
+  validateSearch: (s: Record<string, unknown>): GroupSearch => ({
+    who: s.who === 'mine' || s.who === 'unassigned' ? s.who : undefined,
+    done: s.done === '1' ? '1' : undefined,
+    invite: s.invite === '1' ? '1' : undefined,
+    task: str(s.task),
+  }),
+  component: GroupPage,
+});
+const groupSettings = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/groups/$id/settings',
+  component: GroupSettingsPage,
+});
+const admin = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/admin',
+  validateSearch: (s: Record<string, unknown>): { status?: string; report?: string } => ({
+    status: str(s.status),
+    report: str(s.report),
+  }),
+  component: AdminPage,
+});
+/** Invite links. Works signed out (shows the group and asks to log in or sign up). */
+const join = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/join/$code',
+  component: JoinPage,
+});
 const welcome = createRoute({
   getParentRoute: () => appRoute,
   path: '/welcome',
@@ -213,9 +268,22 @@ const welcome = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   guestRoute.addChildren([signIn, signUp, verify, forgot, reset]),
-  appRoute.addChildren([today, tasks, newTask, taskDetail, editTask, settings, welcome]),
+  appRoute.addChildren([
+    today,
+    tasks,
+    newTask,
+    taskDetail,
+    editTask,
+    settings,
+    groupsRoute,
+    group,
+    groupSettings,
+    admin,
+    welcome,
+  ]),
   suspended,
   legal,
+  join,
 ]);
 
 export function createAppRouter(queryClient: QueryClient) {
