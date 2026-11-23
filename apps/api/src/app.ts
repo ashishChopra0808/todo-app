@@ -19,7 +19,15 @@ import { phoneAuthRoutes } from './routes/auth-phone';
 import { localFileRoutes } from './routes/files';
 import { healthRoutes } from './routes/health';
 import { meRoutes } from './routes/me';
+import { adminRoutes, commentRoutes } from './routes/comments';
+import { createViewerLoader, type ViewerOf } from './routes/context';
+import { groupRoutes } from './routes/groups';
 import { taskRoutes } from './routes/tasks';
+import { createAvatars } from './services/avatars';
+import { createCommentService, type CommentService } from './services/comments';
+import { createDailyLimits } from './services/daily-limits';
+import { createGroupService, type GroupService } from './services/groups';
+import { createReportService, type ReportService } from './services/reports';
 import { createAccountService, type AccountService } from './services/account';
 import { createAudit, type Audit } from './services/audit';
 import { createEmailSender, type EmailSender } from './services/email';
@@ -39,7 +47,11 @@ export interface AppDeps {
   sms: SmsSender;
   storage: ReturnType<typeof createStorage>;
   tasks: TaskService;
+  groups: GroupService;
+  comments: CommentService;
+  reports: ReportService;
   accounts: AccountService;
+  viewerOf: ViewerOf;
   requireUser: RequireUser;
   cookieName: string;
 }
@@ -83,6 +95,23 @@ export async function buildApp(
   });
   const authCtx = await auth.$context;
 
+  const avatarUrl = createAvatars(storage);
+  const limits = createDailyLimits(redis, config.RATE_LIMITS_ENABLED);
+  const tasks = createTaskService(db, avatarUrl, limits);
+  const groups = createGroupService({
+    db,
+    config,
+    crypto,
+    audit,
+    avatarUrl,
+    limits,
+    email,
+    sms,
+    tasks,
+  });
+  const comments = createCommentService(db, tasks, avatarUrl, limits);
+  const reports = createReportService({ db, config, audit, limits, tasks, comments });
+
   const deps: AppDeps = {
     config,
     db,
@@ -93,8 +122,12 @@ export async function buildApp(
     email,
     sms,
     storage,
-    tasks: createTaskService(db),
-    accounts: createAccountService(db, storage, crypto),
+    tasks,
+    groups,
+    comments,
+    reports,
+    viewerOf: createViewerLoader(db),
+    accounts: createAccountService(db, storage, crypto, groups),
     requireUser: createAuthGuard(auth, db),
     cookieName: authCtx.authCookies.sessionToken.name,
   };
@@ -191,6 +224,7 @@ export async function buildApp(
     } else {
       status = 500;
       req.log.error({ err }, 'unhandled error');
+      if (process.env.DEBUG_500) console.error(err);
       Sentry.captureException(err, { tags: { requestId: req.id } });
       body = {
         error: { code: 'internal', message: 'Something went wrong. Please try again.' },
@@ -212,6 +246,9 @@ export async function buildApp(
   phoneAuthRoutes(app, deps);
   meRoutes(app, deps);
   taskRoutes(app, deps);
+  groupRoutes(app, deps);
+  commentRoutes(app, deps);
+  adminRoutes(app, deps);
   localFileRoutes(app, deps);
 
   const close = async () => {

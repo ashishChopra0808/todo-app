@@ -23,6 +23,13 @@ export const ERROR_CODES = [
   'unsupported_file',
   'file_too_large',
   'reauth_required',
+  'invite_invalid',
+  'group_full',
+  'too_many_groups',
+  'last_admin',
+  'daily_limit',
+  'not_a_member',
+  'sms_unavailable',
   'internal',
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];

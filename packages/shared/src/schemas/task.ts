@@ -24,6 +24,10 @@ export const taskCreateSchema = z
     dueHasTime: z.boolean().default(false),
     priority: z.enum(TASK_PRIORITIES).default('medium'),
     status: z.enum(TASK_STATUSES).default('todo'),
+    /** null or missing = Personal */
+    groupId: z.uuid().nullable().optional(),
+    /** Group tasks: a member, or null for unassigned. Personal tasks are always the creator's. */
+    assigneeId: z.uuid().nullable().optional(),
   })
   .strict();
 export type TaskCreateInput = z.input<typeof taskCreateSchema>;
@@ -37,6 +41,9 @@ export const taskUpdateSchema = z
     dueHasTime: z.boolean().optional(),
     priority: z.enum(TASK_PRIORITIES).optional(),
     status: z.enum(TASK_STATUSES).optional(),
+    /** Move to a group (or null = Personal). Creator only. */
+    groupId: z.uuid().nullable().optional(),
+    assigneeId: z.uuid().nullable().optional(),
   })
   .strict();
 export type TaskUpdateInput = z.input<typeof taskUpdateSchema>;
@@ -54,6 +61,10 @@ export const taskListQuerySchema = z.object({
   dueFrom: z.iso.date().optional(),
   dueTo: z.iso.date().optional(),
   q: z.string().trim().max(LIMITS.search).optional(),
+  /** A group id, or "personal". */
+  group: z.union([z.literal('personal'), z.uuid()]).optional(),
+  /** A user id, "me", or "none" (unassigned). */
+  assignee: z.union([z.literal('me'), z.literal('none'), z.uuid()]).optional(),
   cursor: z.string().max(200).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });

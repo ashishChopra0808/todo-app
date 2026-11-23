@@ -20,6 +20,13 @@ const STATUS: Partial<Record<ErrorCode, number>> = {
   phone_taken: 409,
   account_locked: 423,
   rate_limited: 429,
+  daily_limit: 429,
+  invite_invalid: 410,
+  group_full: 409,
+  too_many_groups: 409,
+  last_admin: 409,
+  not_a_member: 400,
+  sms_unavailable: 503,
   too_many_attempts: 429,
   internal: 500,
 };

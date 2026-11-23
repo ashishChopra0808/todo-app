@@ -5,11 +5,16 @@
       "verify": "Your ToDo verification code is {{code}}.\n\nIt expires in {{minutes}} minutes. If you did not ask for this code, you can ignore this email.",
       "reset": "Your ToDo password reset code is {{code}}.\n\nIt expires in {{minutes}} minutes. If you did not ask to reset your password, ignore this email — your password stays the same.",
       "change": "Use {{code}} to confirm this email address for your ToDo account.\n\nIt expires in {{minutes}} minutes."
+    },
+    "invite": {
+      "subject": "{{inviter}} invited you to “{{group}}” on ToDo",
+      "body": "{{inviter}} invited you to join the group “{{group}}” on ToDo, a shared task list.\n\nJoin here: {{link}}\n\nThis invite works once and expires in {{days}} days. If you don't know {{inviter}}, you can ignore this email."
     }
   },
   "sms": {
     "otp": "{{code}} is your ToDo verification code. Valid for {{minutes}} min. Do not share it with anyone.",
-    "reset": "{{code}} is your ToDo password reset code. Valid for {{minutes}} min. Do not share it with anyone."
+    "reset": "{{code}} is your ToDo password reset code. Valid for {{minutes}} min. Do not share it with anyone.",
+    "invite": "{{inviter}} invited you to {{group}} on ToDo. Join: {{link}}"
   },
   "app": {
     "name": "ToDo",

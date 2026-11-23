@@ -13,9 +13,13 @@ import type { Db } from '../db/client';
 import {
   accounts,
   auditLogs,
+  comments,
   consents,
   deletedAccounts,
   files,
+  groupMembers,
+  groups,
+  reports,
   sessions,
   taskActivity,
   tasks,
@@ -24,12 +28,18 @@ import {
 import type { CryptoKit } from '../lib/crypto';
 import { AppError } from '../lib/errors';
 import { newId } from '../lib/ids';
+import type { GroupService } from './groups';
 import type { Storage } from './storage';
 
 type UserRow = typeof users.$inferSelect;
 const days = (n: number) => new Date(Date.now() + n * 24 * 3600 * 1000);
 
-export function createAccountService(db: Db, storage: Storage, crypto: CryptoKit) {
+export function createAccountService(
+  db: Db,
+  storage: Storage,
+  crypto: CryptoKit,
+  groupService: Pick<GroupService, 'handOverOnAccountDelete'>,
+) {
   async function avatarUrl(user: UserRow): Promise<string | null> {
     if (user.avatarFileId) {
       const file = await db.query.files.findFirst({
@@ -144,7 +154,7 @@ export function createAccountService(db: Db, storage: Storage, crypto: CryptoKit
         : [];
       return {
         exportedAt: new Date().toISOString(),
-        format: 'todo-export-v1',
+        format: 'todo-export-v2',
         profile: { ...me, avatarUrl: undefined },
         consents: await db.query.consents.findMany({
           where: eq(consents.userId, user.id),
@@ -173,6 +183,42 @@ export function createAccountService(db: Db, storage: Storage, crypto: CryptoKit
           to: a.toValue,
           at: a.createdAt,
         })),
+        groups: (
+          await db
+            .select({
+              id: groups.id,
+              name: groups.name,
+              role: groupMembers.role,
+              joinedAt: groupMembers.joinedAt,
+            })
+            .from(groupMembers)
+            .innerJoin(groups, eq(groups.id, groupMembers.groupId))
+            .where(and(eq(groupMembers.userId, user.id), isNull(groups.deletedAt)))
+            .orderBy(asc(groupMembers.joinedAt))
+        ).map((g) => ({ ...g, joinedAt: g.joinedAt.toISOString() })),
+        comments: (
+          await db.query.comments.findMany({
+            where: and(
+              eq(comments.authorId, user.id),
+              isNull(comments.deletedAt),
+              isNull(comments.removedAt),
+            ),
+            orderBy: asc(comments.createdAt),
+          })
+        ).map((c) => ({
+          id: c.id,
+          taskId: c.taskId,
+          body: c.body,
+          createdAt: c.createdAt,
+          editedAt: c.editedAt,
+        })),
+        reportsMade: (
+          await db.query.reports.findMany({
+            where: eq(reports.reporterId, user.id),
+            columns: { targetType: true, reason: true, status: true, createdAt: true },
+            orderBy: asc(reports.createdAt),
+          })
+        ).map((r) => ({ ...r })),
         securityEvents: (
           await db.query.auditLogs.findMany({
             where: eq(auditLogs.actorUserId, user.id),
@@ -217,6 +263,13 @@ export function createAccountService(db: Db, storage: Storage, crypto: CryptoKit
           .update(tasks)
           .set({ deletedAt: now, purgeAfter })
           .where(and(eq(tasks.createdBy, user.id), isNull(tasks.groupId), isNull(tasks.deletedAt)));
+        // Their comments disappear for everyone (kept hidden 180 days). Group tasks they created
+        // stay with the group; their open group tasks become unassigned (assignee FK is SET NULL).
+        await tx
+          .update(comments)
+          .set({ deletedAt: now, purgeAfter })
+          .where(and(eq(comments.authorId, user.id), isNull(comments.deletedAt)));
+        await groupService.handOverOnAccountDelete(tx, user.id);
         await tx
           .update(files)
           .set({ deletedAt: now, purgeAfter: now })

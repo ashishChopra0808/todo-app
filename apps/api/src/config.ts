@@ -31,6 +31,8 @@ const schema = z
     SMS_DRIVER: z.enum(['msg91', 'forward-email', 'file', 'log']).default('log'),
     MSG91_AUTH_KEY: z.string().optional(),
     MSG91_OTP_TEMPLATE_ID: z.string().optional(),
+    /** Second DLT template, for group invites by SMS. Without it, phone invites are unavailable with msg91. */
+    MSG91_INVITE_TEMPLATE_ID: z.string().optional(),
     /** Staging: SMS texts are emailed here instead of being sent (until DLT approval). */
     SMS_FORWARD_TO: z.string().optional(),
 
@@ -50,6 +52,19 @@ const schema = z
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(1),
 
     SENTRY_DSN: z.string().optional(),
+    /**
+     * Comma-separated emails of the app owner(s). Only these verified accounts can open the
+     * review page (/admin) and act on reports. Empty = nobody.
+     */
+    OWNER_EMAILS: z
+      .string()
+      .default('')
+      .transform((v) =>
+        v
+          .split(',')
+          .map((e) => e.trim().toLowerCase())
+          .filter(Boolean),
+      ),
     TERMS_VERSION: z.string().default('2026-11-draft'),
     PRIVACY_VERSION: z.string().default('2026-11-draft'),
     RUN_WORKER_IN_PROCESS: bool.default(true),
