@@ -54,3 +54,14 @@ export async function signUpByEmail(page: Page, email = uniqueEmail('user'), nam
   await expect(page).toHaveURL(/\/today/);
   return email;
 }
+
+/** Sign-up that doesn't assume where the app lands afterwards (e.g. back on an invite). */
+export async function signUpAndVerify(page: Page, email: string, name: string) {
+  await page.getByRole('textbox', { name: 'Your name' }).fill(name);
+  await page.getByRole('textbox', { name: 'Email' }).fill(email);
+  await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
+  await page.getByRole('checkbox').check();
+  await page.getByRole('button', { name: 'Create account' }).click();
+  await expect(page).toHaveURL(/\/verify/);
+  await page.getByLabel('6-digit code').fill(await otpFor(email));
+}

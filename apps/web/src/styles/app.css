@@ -1738,3 +1738,13 @@ textarea.input {
   font-size: 14px;
   margin: 0;
 }
+/* While a sheet is open on a phone, toasts move to the top so they never cover its buttons. */
+@media (max-width: 899px) {
+  body:has(.modal-overlay) .toasts {
+    inset-block-end: auto;
+    inset-block-start: calc(var(--space-4) + env(safe-area-inset-top));
+  }
+  .btn.desktop-only {
+    display: none;
+  }
+}

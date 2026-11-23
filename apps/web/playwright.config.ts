@@ -26,6 +26,7 @@ const apiEnv = {
   RUN_WORKER_IN_PROCESS: 'false',
   TRUST_PROXY_HOPS: '0',
   LOG_LEVEL: 'error',
+  OWNER_EMAILS: 'owner@e2e.test',
 };
 
 export default defineConfig({

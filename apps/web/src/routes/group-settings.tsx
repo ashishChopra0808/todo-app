@@ -153,6 +153,11 @@ function MembersSection({ g, meId }: { g: GroupDto; meId: string }) {
                     <button
                       type="button"
                       className="btn btn--ghost btn--small"
+                      aria-label={`${
+                        m.role === 'admin'
+                          ? t('groupSettings.makeMember')
+                          : t('groupSettings.makeAdmin')
+                      }: ${m.name}`}
                       disabled={changeRole.isPending}
                       onClick={() =>
                         changeRole.mutate(
@@ -167,17 +172,16 @@ function MembersSection({ g, meId }: { g: GroupDto; meId: string }) {
                       {m.role === 'admin'
                         ? t('groupSettings.makeMember')
                         : t('groupSettings.makeAdmin')}
-                      <span className="visually-hidden">: {m.name}</span>
                     </button>
                   )}
                   {admin && !self && (
                     <button
                       type="button"
                       className="btn btn--danger-ghost btn--small"
+                      aria-label={`${t('groupSettings.remove')}: ${m.name}`}
                       onClick={() => setRemoving(m)}
                     >
                       {t('groupSettings.remove')}
-                      <span className="visually-hidden">: {m.name}</span>
                     </button>
                   )}
                   {!self && (
