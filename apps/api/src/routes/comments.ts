@@ -35,7 +35,11 @@ export function commentRoutes(app: FastifyInstance, deps: AppDeps) {
   });
 
   app.patch('/api/v1/comments/:id', pre, async (req) =>
-    deps.comments.update(await viewer(req), id(req.params), commentUpdateSchema.parse(req.body).body),
+    deps.comments.update(
+      await viewer(req),
+      id(req.params),
+      commentUpdateSchema.parse(req.body).body,
+    ),
   );
 
   app.delete('/api/v1/comments/:id', pre, async (req, reply) => {

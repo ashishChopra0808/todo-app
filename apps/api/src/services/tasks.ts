@@ -1,16 +1,4 @@
-import {
-  and,
-  asc,
-  desc,
-  eq,
-  inArray,
-  isNotNull,
-  isNull,
-  ne,
-  or,
-  sql,
-  type SQL,
-} from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, or, sql, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import {
   RETENTION_DAYS,
@@ -156,7 +144,10 @@ export function createTaskService(db: Db, avatarUrl: AvatarUrl, limits: DailyLim
         ? {
             id: t.assigneeId,
             name: row.assigneeName ?? '',
-            avatarUrl: await avatarUrl({ avatarKey: row.assigneeAvatarKey, image: row.assigneeImage }),
+            avatarUrl: await avatarUrl({
+              avatarKey: row.assigneeAvatarKey,
+              image: row.assigneeImage,
+            }),
           }
         : null,
       commentCount: row.commentCount ?? 0,

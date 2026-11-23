@@ -34,7 +34,10 @@ async function create(c: Client, body: Record<string, unknown>) {
 }
 
 const titles = async (c: Client, q: string) =>
-  (await c.get(`/api/v1/tasks?${q}`)).json().items.map((t: { title: string }) => t.title).sort();
+  (await c.get(`/api/v1/tasks?${q}`))
+    .json()
+    .items.map((t: { title: string }) => t.title)
+    .sort();
 
 describe('group tasks', () => {
   it('any member creates and assigns to a member; everyone in the group sees it', async () => {
@@ -47,7 +50,8 @@ describe('group tasks', () => {
       commentCount: 0,
     });
     expect(t.permissions).toMatchObject({ edit: true, assign: true, move: true });
-    for (const c of [asha, meera]) expect((await c.get(`/api/v1/tasks/${t.id}`)).statusCode).toBe(200);
+    for (const c of [asha, meera])
+      expect((await c.get(`/api/v1/tasks/${t.id}`)).statusCode).toBe(200);
 
     const activity = (await asha.get(`/api/v1/tasks/${t.id}/activity`)).json();
     expect(activity.map((a: { type: string }) => a.type)).toEqual(['created', 'assigned']);
@@ -64,18 +68,28 @@ describe('group tasks', () => {
       `/api/v1/tasks/${t.id}/comments`,
     ])
       expect((await stranger.get(url)).statusCode, url).toBe(404);
-    expect((await stranger.patch(`/api/v1/tasks/${t.id}`, { version: 1, status: 'done' })).statusCode).toBe(404);
-    expect((await stranger.post(`/api/v1/tasks/${t.id}/comments`, { body: 'hi' })).statusCode).toBe(404);
+    expect(
+      (await stranger.patch(`/api/v1/tasks/${t.id}`, { version: 1, status: 'done' })).statusCode,
+    ).toBe(404);
+    expect((await stranger.post(`/api/v1/tasks/${t.id}/comments`, { body: 'hi' })).statusCode).toBe(
+      404,
+    );
     expect(await titles(stranger, 'view=all')).toEqual([]);
     // Can't create in, or assign into, a group they're not in.
-    expect((await stranger.post('/api/v1/tasks', { title: 'x', groupId: g.id })).statusCode).toBe(404);
+    expect((await stranger.post('/api/v1/tasks', { title: 'x', groupId: g.id })).statusCode).toBe(
+      404,
+    );
   });
 
   it('the assignee must be a member; personal tasks stay with their creator', async () => {
     const { asha, g } = await family();
     const stranger = await signUpWithEmail(ctx, 'stranger@example.com', 'Stranger');
     const strangerId = await meId(stranger);
-    const bad = await asha.post('/api/v1/tasks', { title: 'x', groupId: g.id, assigneeId: strangerId });
+    const bad = await asha.post('/api/v1/tasks', {
+      title: 'x',
+      groupId: g.id,
+      assigneeId: strangerId,
+    });
     expect(bad.statusCode).toBe(400);
     expect(bad.json().error.code).toBe('not_a_member');
     const personal = await asha.post('/api/v1/tasks', { title: 'x', assigneeId: strangerId });
@@ -87,13 +101,25 @@ describe('group tasks', () => {
     const t = await create(ravi, { title: 'Fix tap', groupId: g.id, assigneeId: ids.meera });
     // Meera (assignee) can mark it done but not rename or reassign it.
     const asMeera = (await meera.get(`/api/v1/tasks/${t.id}`)).json();
-    expect(asMeera.permissions).toMatchObject({ edit: false, changeStatus: true, assign: false, comment: true });
-    expect((await meera.patch(`/api/v1/tasks/${t.id}`, { version: 1, title: 'No' })).statusCode).toBe(403);
-    expect((await meera.patch(`/api/v1/tasks/${t.id}`, { version: 1, assigneeId: null })).statusCode).toBe(403);
+    expect(asMeera.permissions).toMatchObject({
+      edit: false,
+      changeStatus: true,
+      assign: false,
+      comment: true,
+    });
+    expect(
+      (await meera.patch(`/api/v1/tasks/${t.id}`, { version: 1, title: 'No' })).statusCode,
+    ).toBe(403);
+    expect(
+      (await meera.patch(`/api/v1/tasks/${t.id}`, { version: 1, assigneeId: null })).statusCode,
+    ).toBe(403);
     const done = await meera.patch(`/api/v1/tasks/${t.id}`, { version: 1, status: 'done' });
     expect(done.json()).toMatchObject({ status: 'done', version: 2 });
     // Asha (admin, not creator) can edit and delete.
-    expect((await asha.patch(`/api/v1/tasks/${t.id}`, { version: 2, title: 'Fix kitchen tap' })).statusCode).toBe(200);
+    expect(
+      (await asha.patch(`/api/v1/tasks/${t.id}`, { version: 2, title: 'Fix kitchen tap' }))
+        .statusCode,
+    ).toBe(200);
     // Ravi re-assigns to Asha.
     const re = await ravi.patch(`/api/v1/tasks/${t.id}`, { version: 3, assigneeId: ids.asha });
     expect(re.json().assignee.id).toBe(ids.asha);
@@ -127,7 +153,10 @@ describe('group tasks', () => {
     expect(await titles(asha, `view=all&group=${g.id}`)).toHaveLength(4);
     expect(await titles(asha, 'view=all&group=personal')).toEqual(['Personal']);
     expect(await titles(asha, `view=all&group=${g.id}&assignee=none`)).toEqual(['Unassigned']);
-    expect(await titles(asha, `view=all&group=${g.id}&assignee=me`)).toEqual(['For me', 'Ravi for Asha']);
+    expect(await titles(asha, `view=all&group=${g.id}&assignee=me`)).toEqual([
+      'For me',
+      'Ravi for Asha',
+    ]);
     expect(await titles(asha, `view=all&assignee=${ids.ravi}`)).toEqual(['For Ravi']);
     // Ravi doesn't see Asha's personal task.
     expect(await titles(ravi, 'view=all')).not.toContain('Personal');
@@ -141,11 +170,15 @@ describe('group tasks', () => {
     const other = await createGroup(asha, 'Office', '💼');
     const t = await create(ravi, { title: 'Book tickets' });
     // Ravi isn't in "Office": looks like it doesn't exist.
-    expect((await ravi.patch(`/api/v1/tasks/${t.id}`, { version: 1, groupId: other.id })).statusCode).toBe(404);
+    expect(
+      (await ravi.patch(`/api/v1/tasks/${t.id}`, { version: 1, groupId: other.id })).statusCode,
+    ).toBe(404);
     const moved = await ravi.patch(`/api/v1/tasks/${t.id}`, { version: 1, groupId: g.id });
     expect(moved.json()).toMatchObject({ groupId: g.id, assignee: { id: ids.ravi } });
     // Now Asha sees it, but only the creator can move it.
-    expect((await asha.patch(`/api/v1/tasks/${t.id}`, { version: 2, groupId: null })).statusCode).toBe(403);
+    expect(
+      (await asha.patch(`/api/v1/tasks/${t.id}`, { version: 2, groupId: null })).statusCode,
+    ).toBe(403);
     // Assign to Asha, then move back to Personal: it returns to Ravi and Asha loses access.
     await ravi.patch(`/api/v1/tasks/${t.id}`, { version: 2, assigneeId: ids.asha });
     const back = await ravi.patch(`/api/v1/tasks/${t.id}`, { version: 3, groupId: null });
@@ -172,7 +205,12 @@ describe('group tasks', () => {
   it('removing a member unassigns their open tasks (done ones keep the name)', async () => {
     const { asha, ravi, g, ids } = await family();
     const open = await create(asha, { title: 'Open one', groupId: g.id, assigneeId: ids.ravi });
-    const done = await create(asha, { title: 'Done one', groupId: g.id, assigneeId: ids.ravi, status: 'done' });
+    const done = await create(asha, {
+      title: 'Done one',
+      groupId: g.id,
+      assigneeId: ids.ravi,
+      status: 'done',
+    });
     const personal = await create(ravi, { title: 'Ravi personal' });
     const res = await asha.del(`/api/v1/groups/${g.id}/members/${ids.ravi}`);
     expect(res.json()).toEqual({ unassignedTasks: 1 });
@@ -195,13 +233,20 @@ describe('group tasks', () => {
   it('assigning to someone who later left is refused', async () => {
     const { asha, ravi, g, ids } = await family();
     await ravi.del(`/api/v1/groups/${g.id}/members/${ids.ravi}`);
-    const res = await asha.post('/api/v1/tasks', { title: 'x', groupId: g.id, assigneeId: ids.ravi });
+    const res = await asha.post('/api/v1/tasks', {
+      title: 'x',
+      groupId: g.id,
+      assigneeId: ids.ravi,
+    });
     expect(res.json().error.code).toBe('not_a_member');
   });
 
   it('daily task limit', async () => {
     const asha = await signUpWithEmail(ctx);
-    await ctx.deps.redis.set(`daily:tasks:${await meId(asha)}:${new Date().toISOString().slice(0, 10)}`, 200);
+    await ctx.deps.redis.set(
+      `daily:tasks:${await meId(asha)}:${new Date().toISOString().slice(0, 10)}`,
+      200,
+    );
     const res = await asha.post('/api/v1/tasks', { title: 'One too many' });
     expect(res.statusCode).toBe(429);
     expect(res.json().error.code).toBe('daily_limit');

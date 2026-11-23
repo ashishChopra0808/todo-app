@@ -16,7 +16,9 @@ export async function loadGroupRoles(db: Db, userId: string): Promise<Record<str
     .select({ groupId: groupMembers.groupId, role: groupMembers.role })
     .from(groupMembers)
     .innerJoin(groups, eq(groups.id, groupMembers.groupId))
-    .where(and(eq(groupMembers.userId, userId), isNull(groups.deletedAt), isNull(groups.removedAt)));
+    .where(
+      and(eq(groupMembers.userId, userId), isNull(groups.deletedAt), isNull(groups.removedAt)),
+    );
   return Object.fromEntries(rows.map((r) => [r.groupId, r.role]));
 }
 

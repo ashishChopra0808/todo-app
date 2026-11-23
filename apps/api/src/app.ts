@@ -224,7 +224,6 @@ export async function buildApp(
     } else {
       status = 500;
       req.log.error({ err }, 'unhandled error');
-      if (process.env.DEBUG_500) console.error(err);
       Sentry.captureException(err, { tags: { requestId: req.id } });
       body = {
         error: { code: 'internal', message: 'Something went wrong. Please try again.' },

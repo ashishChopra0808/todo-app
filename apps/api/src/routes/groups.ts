@@ -93,7 +93,9 @@ export function groupRoutes(app: FastifyInstance, deps: AppDeps) {
     { config: { rateLimit: { max: 30, timeWindow: '10 minutes' } } },
     async (req, reply) => {
       const c = code(req.params);
-      const session = await deps.auth.api.getSession({ headers: webHeaders(req) }).catch(() => null);
+      const session = await deps.auth.api
+        .getSession({ headers: webHeaders(req) })
+        .catch(() => null);
       let v = null;
       if (session) {
         const user = await deps.db.query.users.findFirst({ where: eq(users.id, session.user.id) });

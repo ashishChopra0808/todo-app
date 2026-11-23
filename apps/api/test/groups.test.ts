@@ -120,8 +120,7 @@ describe('roles and leaving', () => {
     expect(promoted.json().filter((m: { role: string }) => m.role === 'admin')).toHaveLength(2);
     // Now Asha can step down.
     expect(
-      (await asha.patch(`/api/v1/groups/${g.id}/members/${ashaId}`, { role: 'member' }))
-        .statusCode,
+      (await asha.patch(`/api/v1/groups/${g.id}/members/${ashaId}`, { role: 'member' })).statusCode,
     ).toBe(200);
     const audit = await ctx.deps.db.query.auditLogs.findMany();
     expect(audit.filter((a) => a.action === 'role_change')).toHaveLength(2);
@@ -250,8 +249,9 @@ describe('invites', () => {
 
     const meera = await signUpWithEmail(ctx, 'meera@example.com', 'Meera Iyer');
     expect((await meera.post(`/api/v1/invites/${inv.json().code}/accept`)).statusCode).toBe(201);
-    expect((await ravi.post(`/api/v1/invites/${inv.json().code}/accept`)).json().error.details
-      .reason).toBe('used_up');
+    expect(
+      (await ravi.post(`/api/v1/invites/${inv.json().code}/accept`)).json().error.details.reason,
+    ).toBe('used_up');
   });
 
   it('phone invites go by SMS and match the verified number', async () => {
@@ -279,9 +279,11 @@ describe('invites', () => {
       { length: GROUPS.maxMembers - 1 },
       (_, i) => `0193${String(i).padStart(4, '0')}-0000-7000-8000-000000000000`,
     );
-    await ctx.deps.db.insert(users).values(
-      others.map((id, i) => ({ id, name: `U${i}`, email: `u${i}@x.test`, emailVerified: true })),
-    );
+    await ctx.deps.db
+      .insert(users)
+      .values(
+        others.map((id, i) => ({ id, name: `U${i}`, email: `u${i}@x.test`, emailVerified: true })),
+      );
     await ctx.deps.db
       .insert(groupMembers)
       .values(others.map((userId) => ({ groupId: g.id, userId, role: 'member' as const })));
@@ -299,7 +301,10 @@ describe('daily limits', () => {
   it('stops invites after 20 a day', async () => {
     const asha = await signUpWithEmail(ctx);
     const g = await createGroup(asha);
-    await ctx.deps.redis.set(`daily:invites:${await meId(asha)}:${new Date().toISOString().slice(0, 10)}`, 20);
+    await ctx.deps.redis.set(
+      `daily:invites:${await meId(asha)}:${new Date().toISOString().slice(0, 10)}`,
+      20,
+    );
     const res = await asha.post(`/api/v1/groups/${g.id}/invites`, { channel: 'link' });
     expect(res.statusCode).toBe(429);
     expect(res.json().error.code).toBe('daily_limit');

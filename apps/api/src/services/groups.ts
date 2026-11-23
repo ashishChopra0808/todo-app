@@ -44,7 +44,8 @@ const firstName = (name: string | null | undefined) => (name ?? '').trim().split
 
 function newCode(): string {
   let out = '';
-  for (let i = 0; i < GROUPS.codeLength; i++) out += INVITE_ALPHABET[randomInt(INVITE_ALPHABET.length)];
+  for (let i = 0; i < GROUPS.codeLength; i++)
+    out += INVITE_ALPHABET[randomInt(INVITE_ALPHABET.length)];
   return out;
 }
 
@@ -84,7 +85,9 @@ export function createGroupService(d: Deps) {
     return limit ? q.limit(limit) : q;
   }
 
-  async function toMember(r: Awaited<ReturnType<typeof memberRows>>[number]): Promise<GroupMemberDto> {
+  async function toMember(
+    r: Awaited<ReturnType<typeof memberRows>>[number],
+  ): Promise<GroupMemberDto> {
     return {
       id: r.id,
       name: r.name,
@@ -114,14 +117,6 @@ export function createGroupService(d: Deps) {
         .select({ n: sql<number>`count(*)::int` })
         .from(groupMembers)
         .where(eq(groupMembers.groupId, groupId))
-    )[0]?.n ?? 0;
-
-  const countAdmins = async (groupId: string, tx: Pick<Db, 'select'> = db) =>
-    (
-      await tx
-        .select({ n: sql<number>`count(*)::int` })
-        .from(groupMembers)
-        .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.role, 'admin')))
     )[0]?.n ?? 0;
 
   async function toDto(g: GroupRow, role: GroupRole, viewer: Viewer): Promise<GroupDto> {
@@ -202,11 +197,7 @@ export function createGroupService(d: Deps) {
       const ids = Object.keys(viewer.groupRoles);
       if (!ids.length) return [];
       const rows = await db.query.groups.findMany({
-        where: and(
-          inArray(groups.id, ids),
-          isNull(groups.deletedAt),
-          isNull(groups.removedAt),
-        ),
+        where: and(inArray(groups.id, ids), isNull(groups.deletedAt), isNull(groups.removedAt)),
         orderBy: [asc(groups.name), asc(groups.id)],
       });
       return Promise.all(rows.map((g) => toDto(g, viewer.groupRoles[g.id]!, viewer)));
@@ -219,7 +210,10 @@ export function createGroupService(d: Deps) {
 
     async create(viewer: Viewer, input: z.output<typeof groupCreateSchema>, meta: AuditContext) {
       if (Object.keys(viewer.groupRoles).length >= GROUPS.maxGroupsPerUser)
-        throw new AppError('too_many_groups', `You can be in up to ${GROUPS.maxGroupsPerUser} groups`);
+        throw new AppError(
+          'too_many_groups',
+          `You can be in up to ${GROUPS.maxGroupsPerUser} groups`,
+        );
       const id = newId();
       await db.transaction(async (tx) => {
         await tx.insert(groups).values({
@@ -404,7 +398,10 @@ export function createGroupService(d: Deps) {
           await d.email.send({
             to: input.email,
             subject: translate(locale, 'email.invite.subject', vars),
-            text: translate(locale, 'email.invite.body', { ...vars, days: GROUPS.targetInviteDays }),
+            text: translate(locale, 'email.invite.body', {
+              ...vars,
+              days: GROUPS.targetInviteDays,
+            }),
             purpose: 'group-invite',
           });
         } else if (input.channel === 'phone') {
@@ -416,7 +413,10 @@ export function createGroupService(d: Deps) {
         }
       } catch (err) {
         // Don't leave a usable invite behind if it never reached anyone.
-        await db.update(groupInvites).set({ revokedAt: new Date() }).where(eq(groupInvites.id, saved!.id));
+        await db
+          .update(groupInvites)
+          .set({ revokedAt: new Date() })
+          .where(eq(groupInvites.id, saved!.id));
         throw err;
       }
       await d.audit('invite_create', {
@@ -450,7 +450,9 @@ export function createGroupService(d: Deps) {
     },
 
     async revokeInvite(viewer: Viewer, inviteId: string, meta: AuditContext) {
-      const invite = await db.query.groupInvites.findFirst({ where: eq(groupInvites.id, inviteId) });
+      const invite = await db.query.groupInvites.findFirst({
+        where: eq(groupInvites.id, inviteId),
+      });
       if (!invite) throw notFound();
       const g = await memberGroup(viewer, invite.groupId);
       const allowed =
@@ -459,7 +461,10 @@ export function createGroupService(d: Deps) {
           canInvite(viewer, { id: g.id, membersCanInvite: g.membersCanInvite }));
       if (!allowed) throw new AppError('forbidden', 'Only admins can revoke invites');
       if (!invite.revokedAt)
-        await db.update(groupInvites).set({ revokedAt: new Date() }).where(eq(groupInvites.id, inviteId));
+        await db
+          .update(groupInvites)
+          .set({ revokedAt: new Date() })
+          .where(eq(groupInvites.id, inviteId));
       await d.audit('invite_revoke', {
         actorUserId: viewer.id,
         targetType: 'group',
@@ -511,11 +516,18 @@ export function createGroupService(d: Deps) {
           });
       }
       if (Object.keys(viewer.groupRoles).length >= GROUPS.maxGroupsPerUser)
-        throw new AppError('too_many_groups', `You can be in up to ${GROUPS.maxGroupsPerUser} groups`);
+        throw new AppError(
+          'too_many_groups',
+          `You can be in up to ${GROUPS.maxGroupsPerUser} groups`,
+        );
 
       await db.transaction(async (tx) => {
         // Lock the group row: member-count check and insert happen one join at a time.
-        await tx.select({ id: groups.id }).from(groups).where(eq(groups.id, group.id)).for('update');
+        await tx
+          .select({ id: groups.id })
+          .from(groups)
+          .where(eq(groups.id, group.id))
+          .for('update');
         const [{ n } = { n: 0 }] = await tx
           .select({ n: sql<number>`count(*)::int` })
           .from(groupMembers)
@@ -550,7 +562,10 @@ export function createGroupService(d: Deps) {
         metadata: { channel: invite.channel },
         ...meta,
       });
-      const next = { ...viewer, groupRoles: { ...viewer.groupRoles, [group.id]: 'member' as const } };
+      const next = {
+        ...viewer,
+        groupRoles: { ...viewer.groupRoles, [group.id]: 'member' as const },
+      };
       return { group: await this.get(next, group.id), joined: true };
     },
 
@@ -558,7 +573,10 @@ export function createGroupService(d: Deps) {
      * Account deletion: groups where this user is the only admin get a new admin (the longest
      * standing member); groups where they are the only member are deleted.
      */
-    async handOverOnAccountDelete(tx: Parameters<Parameters<Db['transaction']>[0]>[0], userId: string) {
+    async handOverOnAccountDelete(
+      tx: Parameters<Parameters<Db['transaction']>[0]>[0],
+      userId: string,
+    ) {
       const mine = await tx
         .select({ groupId: groupMembers.groupId, role: groupMembers.role })
         .from(groupMembers)
@@ -579,7 +597,9 @@ export function createGroupService(d: Deps) {
           await tx
             .update(groupMembers)
             .set({ role: 'admin' })
-            .where(and(eq(groupMembers.groupId, m.groupId), eq(groupMembers.userId, others[0]!.userId)));
+            .where(
+              and(eq(groupMembers.groupId, m.groupId), eq(groupMembers.userId, others[0]!.userId)),
+            );
         }
       }
     },

@@ -110,8 +110,7 @@ export function createSmsSender(
       return {
         sendOtp: (msg) => writeOutbox(config.OUTBOX_DIR, 'sms', { ...msg }),
         canSendInvites: true,
-        sendInvite: (msg) =>
-          writeOutbox(config.OUTBOX_DIR, 'sms', { ...msg, purpose: 'invite' }),
+        sendInvite: (msg) => writeOutbox(config.OUTBOX_DIR, 'sms', { ...msg, purpose: 'invite' }),
       };
     case 'log':
       return {

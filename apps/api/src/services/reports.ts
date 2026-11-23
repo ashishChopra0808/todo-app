@@ -139,7 +139,10 @@ export function createReportService(d: Deps) {
     await db.transaction(async (tx) => {
       await tx
         .update(users)
-        .set({ suspendedAt: target.suspendedAt ?? new Date(), suspensionReason: reason.slice(0, 500) })
+        .set({
+          suspendedAt: target.suspendedAt ?? new Date(),
+          suspensionReason: reason.slice(0, 500),
+        })
         .where(eq(users.id, userId));
       // Ends every session: they are signed out everywhere at once.
       await tx.delete(sessions).where(eq(sessions.userId, userId));
@@ -200,12 +203,17 @@ export function createReportService(d: Deps) {
         .from(reports)
         .leftJoin(reporter, eq(reporter.id, reports.reporterId))
         .where(eq(reports.status, q.status))
-        .orderBy(q.status === 'open' ? asc(reports.createdAt) : desc(reports.resolvedAt), desc(reports.id))
+        .orderBy(
+          q.status === 'open' ? asc(reports.createdAt) : desc(reports.resolvedAt),
+          desc(reports.id),
+        )
         .limit(q.limit + 1)
         .offset(offset);
       const hasMore = rows.length > q.limit;
       return {
-        items: await Promise.all(rows.slice(0, q.limit).map((x) => toAdminDto(x.r, x.reporterName))),
+        items: await Promise.all(
+          rows.slice(0, q.limit).map((x) => toAdminDto(x.r, x.reporterName)),
+        ),
         nextCursor: hasMore ? Buffer.from(String(offset + q.limit)).toString('base64url') : null,
       };
     },
@@ -269,14 +277,24 @@ export function createReportService(d: Deps) {
       } else if (r.targetType === 'comment') {
         const c = await db.query.comments.findFirst({ where: eq(comments.id, r.targetId) });
         if (c) {
-          current = { body: c.body, edited: !!c.editedAt, deleted: !!c.deletedAt, removed: !!c.removedAt };
+          current = {
+            body: c.body,
+            edited: !!c.editedAt,
+            deleted: !!c.deletedAt,
+            removed: !!c.removedAt,
+          };
           const t = await db.query.tasks.findFirst({ where: eq(tasks.id, c.taskId) });
           if (t) context.push({ label: 'Task', text: t.title, at: t.createdAt.toISOString() });
           await commentsAround(c.taskId, c.createdAt);
         }
       } else if (r.targetType === 'group') {
         if (group)
-          current = { name: group.name, icon: group.icon, deleted: !!group.deletedAt, removed: !!group.removedAt };
+          current = {
+            name: group.name,
+            icon: group.icon,
+            deleted: !!group.deletedAt,
+            removed: !!group.removedAt,
+          };
       } else if (owner) {
         current = { name: owner.name };
         // Their recent comments in the group where they were reported.
@@ -293,7 +311,11 @@ export function createReportService(d: Deps) {
           .orderBy(desc(comments.createdAt))
           .limit(10);
         for (const x of recent)
-          context.push({ label: `On “${x.title}”`, text: x.c.body ?? '', at: x.c.createdAt.toISOString() });
+          context.push({
+            label: `On “${x.title}”`,
+            text: x.c.body ?? '',
+            at: x.c.createdAt.toISOString(),
+          });
       }
 
       return {
@@ -358,7 +380,8 @@ export function createReportService(d: Deps) {
         (r.targetType === 'user' && input.action === 'remove') || input.suspendOwner
           ? r.ownerId
           : null;
-      if (suspendId) await suspend(owner, suspendId, input.note || `Report ${r.id}: ${r.reason}`, meta);
+      if (suspendId)
+        await suspend(owner, suspendId, input.note || `Report ${r.id}: ${r.reason}`, meta);
 
       await db
         .update(reports)
