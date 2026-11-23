@@ -12,6 +12,7 @@ import { Icon } from '../components/Icon';
 import { LanguageSelect } from '../components/LanguageSelect';
 import { OtpField } from '../components/OtpField';
 import { PasswordStrength } from '../components/PasswordStrength';
+import { Select } from '../components/Select';
 import { ErrorState, LoadingList, Spinner } from '../components/States';
 import { useToast } from '../components/Toasts';
 import { authApi } from '../lib/auth-api';
@@ -368,16 +369,7 @@ function PreferencesSection({ me }: { me: MeDto }) {
         {t('settings.preferences.title')}
       </h2>
       <div className="card stack-lg">
-        <div className="field">
-          <label htmlFor="pref-lang" className="field__label">
-            {t('settings.preferences.language')}
-          </label>
-          <LanguageSelect
-            id="pref-lang"
-            className="input"
-            onChange={(locale) => save({ locale })}
-          />
-        </div>
+        <LanguageSelect variant="field" onChange={(locale) => save({ locale })} />
         <Segmented<Theme>
           legend={t('settings.preferences.theme')}
           name="theme"
@@ -392,27 +384,13 @@ function PreferencesSection({ me }: { me: MeDto }) {
             label: t(`settings.preferences.themes.${v}`),
           }))}
         />
-        <div className="field">
-          <label htmlFor="pref-tz" className="field__label">
-            {t('settings.preferences.timeZone')}
-          </label>
-          <select
-            id="pref-tz"
-            className="input"
-            value={me.timeZone}
-            onChange={(e) => save({ timeZone: e.target.value })}
-            aria-describedby="pref-tz-hint"
-          >
-            {zones.map((z) => (
-              <option key={z} value={z}>
-                {z.replace(/_/g, ' ')}
-              </option>
-            ))}
-          </select>
-          <p id="pref-tz-hint" className="field__hint">
-            {t('settings.preferences.timeZoneHint')}
-          </p>
-        </div>
+        <Select
+          label={t('settings.preferences.timeZone')}
+          description={t('settings.preferences.timeZoneHint')}
+          value={me.timeZone}
+          onChange={(timeZone) => save({ timeZone })}
+          options={zones.map((z) => ({ value: z, label: z.replace(/_/g, ' ') }))}
+        />
       </div>
     </section>
   );

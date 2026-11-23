@@ -1,36 +1,33 @@
 import { useTranslation } from 'react-i18next';
 import { localeMeta, supportedLocales, type Locale } from '@todo/i18n';
 import { applyLocale, currentLocale } from '../lib/i18n';
+import { Select } from './Select';
 
-/** Native select: works with every screen reader and keyboard. Shows each language in its own script. */
+/** Language picker. Shows each language in its own script. */
 export function LanguageSelect({
   onChange,
-  className = 'lang-select',
-  id,
+  variant = 'pill',
 }: {
   onChange?: (l: Locale) => void;
-  className?: string;
-  id?: string;
+  /** `pill`: compact picker with a screen-reader-only label. `field`: settings form with a visible label. */
+  variant?: 'pill' | 'field';
 }) {
   const { t } = useTranslation();
-  const current = currentLocale();
   return (
-    <select
-      id={id}
-      className={className}
-      value={current}
-      aria-label={id ? undefined : t('language.label')}
-      onChange={(e) => {
-        const l = e.target.value as Locale;
+    <Select<Locale>
+      label={variant === 'field' ? t('settings.preferences.language') : t('language.label')}
+      hideLabel={variant === 'pill'}
+      variant={variant}
+      value={currentLocale()}
+      onChange={(l) => {
         applyLocale(l);
         onChange?.(l);
       }}
-    >
-      {supportedLocales.map((l) => (
-        <option key={l} value={l} lang={l}>
-          {localeMeta[l].nativeName}
-        </option>
-      ))}
-    </select>
+      options={supportedLocales.map((l) => ({
+        value: l,
+        label: localeMeta[l].nativeName,
+        lang: l,
+      }))}
+    />
   );
 }

@@ -30,6 +30,7 @@ const paths = {
   ),
   chevronLeft: <path d="m15 18-6-6 6-6" />,
   chevronRight: <path d="m9 6 6 6-6 6" />,
+  chevronDown: <path d="m6 9 6 6 6-6" />,
   calendar: (
     <>
       <rect x="3.5" y="5" width="17" height="15" rx="2.5" />

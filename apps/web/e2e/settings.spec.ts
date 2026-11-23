@@ -5,7 +5,8 @@ test('Hindi, dark theme, and both stay accessible', async ({ page }) => {
   await signUpByEmail(page);
   await page.goto('/settings');
   await expectAccessible(page);
-  await page.getByLabel('Language', { exact: true }).selectOption('hi');
+  await page.getByRole('button', { name: /Language/ }).click();
+  await page.getByRole('option', { name: 'हिन्दी' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('सेटिंग्स');
   await expect(page.locator('html')).toHaveAttribute('lang', 'hi');
   await page.getByRole('radio', { name: 'गहरी' }).check();
