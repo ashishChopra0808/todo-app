@@ -5,6 +5,7 @@ import { useCreateInvite } from '../api/queries';
 import { errorMessage, fieldErrors } from '../lib/errors';
 import { Dialog } from './Dialog';
 import { FormError, Segmented, TextField } from './Field';
+import { StagingSmsNote } from './StagingSmsNote';
 import { Icon } from './Icon';
 import { Spinner } from './States';
 import { useToast } from './Toasts';
@@ -212,6 +213,7 @@ export function InviteDialog({
             hint={t('invite.targetHint')}
           />
         )}
+        {mode === 'phone' && <StagingSmsNote kind="invite" block />}
         <FormError message={error} />
         <button
           type="submit"

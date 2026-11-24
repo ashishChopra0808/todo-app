@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
@@ -6,6 +6,7 @@ import { OTP, normalizePhone } from '@todo/shared';
 import { ApiError } from '../api/client';
 import { keys, meQuery } from '../api/queries';
 import { FormError, PasswordField, Segmented, TextField } from '../components/Field';
+import { StagingSmsNote, usePublicConfig } from '../components/StagingSmsNote';
 import { Icon } from '../components/Icon';
 import { LanguageSelect } from '../components/LanguageSelect';
 import { OtpField, mmss, useCountdown } from '../components/OtpField';
@@ -121,11 +122,7 @@ function IdentifierField({
 
 function GoogleButton() {
   const { t } = useTranslation();
-  const cfg = useQuery({
-    queryKey: ['public-config'],
-    queryFn: authApi.publicConfig,
-    staleTime: Infinity,
-  });
+  const cfg = usePublicConfig();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   if (!cfg.data?.googleEnabled) return null;
@@ -471,9 +468,14 @@ export function VerifyPage() {
     <AuthLayout
       title={t('auth.otp.title')}
       subtitle={
-        channel === 'email'
-          ? t('auth.otp.sentToEmail', { target: displayTarget(channel, target) })
-          : t('auth.otp.sentToPhone', { target: displayTarget(channel, target) })
+        channel === 'email' ? (
+          t('auth.otp.sentToEmail', { target: displayTarget(channel, target) })
+        ) : (
+          <>
+            {t('auth.otp.sentToPhone', { target: displayTarget(channel, target) })}
+            <StagingSmsNote kind="code" />
+          </>
+        )
       }
       footer={
         <Link to="/sign-up" className="text-link">
@@ -618,9 +620,14 @@ export function ResetPage() {
     <AuthLayout
       title={t('auth.forgot.resetTitle')}
       subtitle={
-        channel === 'email'
-          ? t('auth.otp.sentToEmail', { target })
-          : t('auth.otp.sentToPhone', { target: displayTarget('phone', target ?? '') })
+        channel === 'email' ? (
+          t('auth.otp.sentToEmail', { target })
+        ) : (
+          <>
+            {t('auth.otp.sentToPhone', { target: displayTarget('phone', target ?? '') })}
+            <StagingSmsNote kind="code" />
+          </>
+        )
       }
       footer={
         <Link to="/sign-in" className="text-link">

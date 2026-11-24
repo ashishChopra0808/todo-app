@@ -2129,3 +2129,52 @@ textarea.input {
   font-size: 44px;
   justify-content: center;
 }
+
+/* Staging only: tells testers where text messages went. */
+.staging-note {
+  display: block;
+  margin-block-start: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-input);
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+/* Thin bar while a page change waits on the server, so a tap never looks ignored. */
+.route-progress {
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline: 0;
+  z-index: 100;
+  block-size: 3px;
+  background: var(--color-accent);
+  transform-origin: left;
+  opacity: 0;
+  animation:
+    route-progress-show 0s linear 150ms forwards,
+    route-progress-grow 8s cubic-bezier(0.1, 0.7, 0.2, 1) 150ms forwards;
+  pointer-events: none;
+}
+[dir='rtl'] .route-progress {
+  transform-origin: right;
+}
+@keyframes route-progress-show {
+  to {
+    opacity: 1;
+  }
+}
+@keyframes route-progress-grow {
+  from {
+    transform: scaleX(0.05);
+  }
+  to {
+    transform: scaleX(0.9);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .route-progress {
+    animation: route-progress-show 0s linear 150ms forwards;
+  }
+}

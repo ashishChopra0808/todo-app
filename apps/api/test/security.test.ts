@@ -14,6 +14,13 @@ describe('security', () => {
     expect(res.headers['x-request-id']).toBeTruthy();
   });
 
+  it('public config says whether texts are forwarded to email (never the address)', async () => {
+    const res = await client(ctx).get('/api/v1/public-config');
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ smsToEmail: false });
+    expect(res.body).not.toContain('@');
+  });
+
   it('readiness checks the database and Redis', async () => {
     const res = await client(ctx).get('/health/ready');
     expect(res.json()).toEqual({ status: 'ok', checks: { database: 'ok', redis: 'ok' } });

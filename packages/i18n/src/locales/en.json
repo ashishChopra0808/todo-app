@@ -864,5 +864,9 @@
     "hearPeople": "Your people: {{names}}",
     "hearConversation": "{{count}} messages with {{name}}. Press Speak to send a voice message.",
     "hearTaskFrom": "A task from {{name}}: {{task}}. Press Yes, done when it is done, or Reply."
+  },
+  "staging": {
+    "smsCode": "Test version: text messages aren't sent to phones yet. This code went to the team's email inbox instead.",
+    "smsInvite": "Test version: invite texts go to the team's email inbox, not to this phone. To reach the person now, send them a link invite instead."
   }
 }

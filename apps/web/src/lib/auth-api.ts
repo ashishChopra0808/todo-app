@@ -5,7 +5,8 @@ export type Channel = 'email' | 'phone';
 
 /** Thin wrappers over the auth endpoints (Better Auth under /api/auth, plus our phone sign-up). */
 export const authApi = {
-  publicConfig: () => get<{ googleEnabled: boolean }>('/api/v1/public-config'),
+  publicConfig: () =>
+    get<{ googleEnabled: boolean; smsToEmail?: boolean }>('/api/v1/public-config'),
 
   signIn: (channel: Channel, id: string, password: string) =>
     channel === 'email'

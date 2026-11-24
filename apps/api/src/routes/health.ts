@@ -13,6 +13,8 @@ export function healthRoutes(app: FastifyInstance, deps: AppDeps) {
       googleEnabled: !!(deps.config.GOOGLE_CLIENT_ID && deps.config.GOOGLE_CLIENT_SECRET),
       termsVersion: deps.config.TERMS_VERSION,
       privacyVersion: deps.config.PRIVACY_VERSION,
+      // Staging only: text messages go to the team's inbox, not to the phone. No address is shared.
+      smsToEmail: deps.config.SMS_DRIVER === 'forward-email',
     };
   });
   app.get('/health/ready', { config: { rateLimit: false } }, async (_req, reply) => {
