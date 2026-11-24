@@ -15,6 +15,13 @@
       "when": 1795457932429,
       "tag": "0001_phase2_groups",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795521881554,
+      "tag": "0002_phase3_voice_notifications",
+      "breakpoints": true
     }
   ]
 }

@@ -8,7 +8,13 @@ initSentry(config);
 
 const { app, deps, close } = await buildApp(config);
 const scheduler = config.RUN_WORKER_IN_PROCESS
-  ? await startScheduler({ redis: deps.redis, db: deps.db, storage: deps.storage, log: app.log })
+  ? await startScheduler({
+      redis: deps.redis,
+      db: deps.db,
+      storage: deps.storage,
+      log: app.log,
+      notifications: deps.notifications,
+    })
   : null;
 
 const shutdown = async (signal: string) => {

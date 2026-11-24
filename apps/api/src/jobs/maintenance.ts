@@ -39,6 +39,14 @@ export async function runMaintenance(db: Db, storage: Storage, now = new Date())
     .where(or(lt(groupInvites.expiresAt, inviteCutoff), lt(groupInvites.revokedAt, inviteCutoff)))
     .returning({ id: groupInvites.id });
 
+  // Recordings uploaded but never attached to a task or comment (e.g. the person gave up).
+  await db.execute(sql`
+    UPDATE files SET deleted_at = ${now.toISOString()}::timestamptz, purge_after = ${now.toISOString()}::timestamptz
+    WHERE kind IN ('task_audio', 'comment_audio') AND deleted_at IS NULL
+      AND created_at < ${new Date(now.getTime() - 864e5).toISOString()}::timestamptz
+      AND NOT EXISTS (SELECT 1 FROM tasks t WHERE t.audio_file_id = files.id)
+      AND NOT EXISTS (SELECT 1 FROM comments c WHERE c.audio_file_id = files.id)`);
+
   const purgedTasks = await db
     .delete(tasks)
     .where(and(isNotNull(tasks.purgeAfter), lt(tasks.purgeAfter, now)))

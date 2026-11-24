@@ -704,5 +704,34 @@
     "suspendUser": "खाता निलंबित करें",
     "dismiss": "खारिज करें",
     "closed": "शिकायत बंद कर दी गई।"
+  },
+  "notify": {
+    "someone": "किसी",
+    "open": "काम खोलें",
+    "manage": "कौन-से ईमेल मिलें, यह बदलें: {{url}}",
+    "task_assigned": {
+      "title": "{{name}} ने आपको एक काम दिया",
+      "body": "“{{task}}”"
+    },
+    "comment_added": {
+      "title": "{{name}} ने “{{task}}” पर टिप्पणी की",
+      "body": "{{comment}}"
+    },
+    "comment_added_voice": {
+      "title": "{{name}} ने आवाज़ में जवाब दिया",
+      "body": "“{{task}}” पर। सुनने के लिए खोलें।"
+    },
+    "status_changed": {
+      "title": "{{name}} ने एक काम {{status}} चिह्नित किया",
+      "body": "“{{task}}”"
+    },
+    "due_soon": {
+      "title": "जल्द करना है",
+      "body": "“{{task}}” एक घंटे के अंदर करना है।"
+    },
+    "overdue": {
+      "title": "समय निकल गया",
+      "body": "“{{task}}” की तारीख निकल गई है।"
+    }
   }
 }

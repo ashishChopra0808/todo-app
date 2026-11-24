@@ -11,3 +11,4 @@ export * from './schemas/profile';
 export * from './schemas/task';
 export * from './schemas/group';
 export * from './schemas/comment';
+export * from './schemas/notification';

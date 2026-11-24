@@ -28,6 +28,8 @@ export const taskCreateSchema = z
     groupId: z.uuid().nullable().optional(),
     /** Group tasks: a member, or null for unassigned. Personal tasks are always the creator's. */
     assigneeId: z.uuid().nullable().optional(),
+    /** Voice task: a recording uploaded with POST /files (kind task_audio). */
+    audioFileId: z.uuid().optional(),
   })
   .strict();
 export type TaskCreateInput = z.input<typeof taskCreateSchema>;

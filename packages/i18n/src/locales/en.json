@@ -704,5 +704,34 @@
     "suspendUser": "Suspend account",
     "dismiss": "Dismiss",
     "closed": "Report closed."
+  },
+  "notify": {
+    "someone": "Someone",
+    "open": "Open the task",
+    "manage": "Change which emails you get: {{url}}",
+    "task_assigned": {
+      "title": "{{name}} gave you a task",
+      "body": "“{{task}}”"
+    },
+    "comment_added": {
+      "title": "{{name}} commented on “{{task}}”",
+      "body": "{{comment}}"
+    },
+    "comment_added_voice": {
+      "title": "{{name}} replied by voice",
+      "body": "On “{{task}}”. Open it to listen."
+    },
+    "status_changed": {
+      "title": "{{name}} marked a task {{status}}",
+      "body": "“{{task}}”"
+    },
+    "due_soon": {
+      "title": "Due soon",
+      "body": "“{{task}}” is due within the hour."
+    },
+    "overdue": {
+      "title": "Overdue",
+      "body": "“{{task}}” is past its due date."
+    }
   }
 }

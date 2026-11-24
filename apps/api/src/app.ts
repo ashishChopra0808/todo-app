@@ -22,10 +22,14 @@ import { meRoutes } from './routes/me';
 import { adminRoutes, commentRoutes } from './routes/comments';
 import { createViewerLoader, type ViewerOf } from './routes/context';
 import { groupRoutes } from './routes/groups';
+import { phase3Routes } from './routes/phase3';
 import { taskRoutes } from './routes/tasks';
 import { createAvatars } from './services/avatars';
 import { createCommentService, type CommentService } from './services/comments';
 import { createDailyLimits } from './services/daily-limits';
+import { createFileService, type FileService } from './services/files';
+import { createNotificationService, type NotificationService } from './services/notifications';
+import { createSimpleService, type SimpleService } from './services/simple';
 import { createGroupService, type GroupService } from './services/groups';
 import { createReportService, type ReportService } from './services/reports';
 import { createAccountService, type AccountService } from './services/account';
@@ -50,6 +54,9 @@ export interface AppDeps {
   groups: GroupService;
   comments: CommentService;
   reports: ReportService;
+  files: FileService;
+  notifications: NotificationService;
+  simple: SimpleService;
   accounts: AccountService;
   viewerOf: ViewerOf;
   requireUser: RequireUser;
@@ -97,7 +104,10 @@ export async function buildApp(
 
   const avatarUrl = createAvatars(storage);
   const limits = createDailyLimits(redis, config.RATE_LIMITS_ENABLED);
-  const tasks = createTaskService(db, avatarUrl, limits);
+  const files = createFileService(db, storage, limits);
+  const notifications = createNotificationService({ db, config, email, avatarUrl, log: app.log });
+  const notify = notifications.notify.bind(notifications);
+  const tasks = createTaskService(db, avatarUrl, limits, { files, notify });
   const groups = createGroupService({
     db,
     config,
@@ -109,7 +119,8 @@ export async function buildApp(
     sms,
     tasks,
   });
-  const comments = createCommentService(db, tasks, avatarUrl, limits);
+  const comments = createCommentService(db, tasks, avatarUrl, limits, { files, notify });
+  const simple = createSimpleService(db, files, avatarUrl);
   const reports = createReportService({ db, config, audit, limits, tasks, comments });
 
   const deps: AppDeps = {
@@ -126,6 +137,9 @@ export async function buildApp(
     groups,
     comments,
     reports,
+    files,
+    notifications,
+    simple,
     viewerOf: createViewerLoader(db),
     accounts: createAccountService(db, storage, crypto, groups),
     requireUser: createAuthGuard(auth, db),
@@ -248,6 +262,7 @@ export async function buildApp(
   groupRoutes(app, deps);
   commentRoutes(app, deps);
   adminRoutes(app, deps);
+  phase3Routes(app, deps);
   localFileRoutes(app, deps);
 
   const close = async () => {
