@@ -205,6 +205,7 @@ test('existing account logs in from an invite, even when the browser autofills t
 
   await ravi.goto(`/join/${code}`);
   await ravi.getByRole('link', { name: 'Log in' }).click();
+  await expect(ravi.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
   // Like iPhone Keychain/Chrome autofill: the values appear without input events.
   await ravi.evaluate(
     ({ e, p }) => {
