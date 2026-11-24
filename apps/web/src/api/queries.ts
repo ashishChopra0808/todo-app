@@ -392,8 +392,9 @@ export function useAcceptInvite() {
   return useMutation({
     mutationFn: (code: string) =>
       post<GroupDto>(`/api/v1/invites/${encodeURIComponent(code)}/accept`),
-    onSuccess: (g) => {
+    onSuccess: (g, code) => {
       qc.setQueryData(keys.group(g.id), g);
+      qc.removeQueries({ queryKey: keys.invitePreview(code) });
       refreshGroups(qc);
       void qc.invalidateQueries({ queryKey: keys.tasks });
     },

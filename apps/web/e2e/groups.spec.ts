@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { expectAccessible, signUpAndVerify, signUpByEmail, uniqueEmail } from './helpers';
+import { PASSWORD, expectAccessible, signUpAndVerify, signUpByEmail, uniqueEmail } from './helpers';
 
 const isWide = (page: Page) => (page.viewportSize()?.width ?? 0) >= 900;
 
@@ -182,4 +182,42 @@ test('group screens in Hindi and the dark theme stay accessible', async ({ page 
   await page.getByRole('link', { name: 'समूह की सेटिंग्स' }).click();
   await expect(page.getByRole('heading', { name: 'समूह की सेटिंग्स' })).toBeVisible();
   await expectAccessible(page);
+});
+
+test('existing account logs in from an invite, even when the browser autofills the boxes', async ({
+  page,
+  browser,
+}, testInfo) => {
+  await signUpByEmail(page, uniqueEmail('a'), 'Asha Verma');
+  await page.goto('/groups');
+  await page.getByRole('button', { name: 'Create a group' }).click();
+  await page.getByRole('dialog').getByLabel('Group name').fill('Home');
+  await page.getByRole('dialog').getByRole('button', { name: 'Create group' }).click();
+  const code = (await page.locator('.invite-code__value').textContent())!.replace('-', '');
+
+  const u = testInfo.project.use;
+  const ravi = await (
+    await browser.newContext({ baseURL: u.baseURL, viewport: u.viewport, isMobile: u.isMobile })
+  ).newPage();
+  const email = uniqueEmail('ravi');
+  await signUpByEmail(ravi, email, 'Ravi Kumar');
+  await ravi.context().clearCookies();
+
+  await ravi.goto(`/join/${code}`);
+  await ravi.getByRole('link', { name: 'Log in' }).click();
+  await expect(ravi.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
+  // Like iPhone Keychain/Chrome autofill: the values appear without input events.
+  await ravi.evaluate(
+    ({ e, p }) => {
+      (document.querySelector('input[name="email"]') as HTMLInputElement).value = e;
+      (document.querySelector('input[name="password"]') as HTMLInputElement).value = p;
+    },
+    { e: email, p: PASSWORD },
+  );
+  await ravi.getByRole('button', { name: 'Log in' }).click();
+  await expect(ravi).toHaveURL(new RegExp(`/join/${code}`));
+  await expect(ravi.getByRole('link', { name: 'Log in' })).toHaveCount(0);
+  await ravi.getByRole('button', { name: 'Join group' }).click();
+  await expect(ravi).toHaveURL(/\/groups\/[0-9a-f-]+$/);
+  await expect(ravi.getByText('2 members')).toBeVisible();
 });

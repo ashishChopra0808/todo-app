@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { inviteCodeSchema } from '@todo/shared';
 import { ApiError } from '../api/client';
@@ -11,7 +11,7 @@ import { Icon } from '../components/Icon';
 import { LoadingList, Spinner } from '../components/States';
 import { useToast } from '../components/Toasts';
 import { errorMessage } from '../lib/errors';
-import { rememberPendingJoin } from '../lib/pending-join';
+import { rememberPendingJoin, takePendingJoin } from '../lib/pending-join';
 
 /** "Have an invite code?" — typed codes go to the same join page as links. */
 export function JoinWithCode() {
@@ -63,10 +63,17 @@ export function JoinPage() {
   const [error, setError] = useState<string | null>(null);
   const here = `/join/${code}`;
 
+  // Back on the invite while signed in: the saved "return to this invite" note has done its job.
+  // Left behind, it would send people back here again right after they join.
+  useEffect(() => {
+    if (signedIn) takePendingJoin();
+  }, [signedIn]);
+
   async function join() {
     setError(null);
     try {
       const g = await accept.mutateAsync(code);
+      takePendingJoin();
       toast(t('join.joined', { name: g.name }));
       await navigate({ to: '/groups/$id', params: { id: g.id }, replace: true });
     } catch (err) {

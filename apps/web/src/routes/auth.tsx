@@ -4,7 +4,7 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { OTP, normalizePhone } from '@todo/shared';
 import { ApiError } from '../api/client';
-import { keys } from '../api/queries';
+import { keys, meQuery } from '../api/queries';
 import { FormError, PasswordField, Segmented, TextField } from '../components/Field';
 import { Icon } from '../components/Icon';
 import { LanguageSelect } from '../components/LanguageSelect';
@@ -176,13 +176,26 @@ export function SignInPage() {
     search.error === 'google' ? t('auth.callback.failed') : null,
   );
 
-  async function submit(e: FormEvent) {
+  async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    // Read what is actually in the boxes: iPhone autofill (Keychain, Chrome) can fill them
+    // without telling React, which used to leave the button disabled and the tap ignored.
+    const form = new FormData(e.currentTarget);
+    const idNow = String(form.get(channel === 'email' ? 'email' : 'phone') ?? id).trim() || id;
+    const passwordNow = String(form.get('password') ?? password) || password;
+    if (idNow !== id) setId(idNow);
+    if (passwordNow !== password) setPassword(passwordNow);
+    if (!idNow || !passwordNow) {
+      setError(t('errors.field.required'));
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      await authApi.signIn(channel, id, password);
-      await qc.invalidateQueries({ queryKey: keys.me });
+      await authApi.signIn(channel, idNow, passwordNow);
+      // Load the signed-in profile before leaving, so the next page (e.g. an invite) never
+      // shows the signed-out version while it re-checks.
+      await qc.fetchQuery({ ...meQuery, staleTime: 0 }).catch(() => undefined);
       const target =
         search.redirect && search.redirect.startsWith('/') && !search.redirect.startsWith('//')
           ? search.redirect
@@ -190,7 +203,7 @@ export function SignInPage() {
       await navigate({ to: target });
     } catch (err) {
       if (err instanceof ApiError && err.code === 'not_verified') {
-        const target = channel === 'email' ? id.trim().toLowerCase() : (normalizePhone(id) ?? id);
+        const target = channel === 'email' ? idNow.toLowerCase() : (normalizePhone(idNow) ?? idNow);
         await authApi.sendVerification(channel, target).catch(() => undefined);
         await navigate({ to: '/verify', search: { channel, target, purpose: 'signin' } });
         return;
@@ -256,11 +269,7 @@ export function SignInPage() {
           </Link>
         </div>
         <FormError message={error} />
-        <button
-          className="btn btn--primary btn--block"
-          type="submit"
-          disabled={busy || !id || !password}
-        >
+        <button className="btn btn--primary btn--block" type="submit" disabled={busy}>
           {busy && <Spinner />}
           {t('auth.signIn.submit')}
         </button>
