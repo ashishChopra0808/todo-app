@@ -213,16 +213,22 @@ export function InviteDialog({
           />
         )}
         <FormError message={error} />
-        <div className="modal__actions">
-          <button type="submit" className="btn btn--secondary btn--block" disabled={sending}>
-            {sending ? <Spinner /> : <Icon name={mode === 'email' ? 'mail' : 'phone'} size={18} />}
-            {t('invite.send')}
-          </button>
-          <button type="button" className="btn btn--ghost btn--block" onClick={onClose}>
-            {t('common.done')}
-          </button>
-        </div>
+        <button
+          type="submit"
+          className="btn btn--secondary"
+          style={{ alignSelf: 'flex-start' }}
+          disabled={sending}
+        >
+          {sending ? <Spinner /> : <Icon name={mode === 'email' ? 'mail' : 'phone'} size={18} />}
+          {t('invite.send')}
+        </button>
       </form>
+
+      <div className="modal__actions modal__footer">
+        <button type="button" className="btn btn--secondary btn--block" onClick={onClose}>
+          {t('common.done')}
+        </button>
+      </div>
     </Dialog>
   );
 }

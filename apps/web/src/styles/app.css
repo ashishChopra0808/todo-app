@@ -1748,3 +1748,11 @@ textarea.input {
     display: none;
   }
 }
+/* A sheet's closing button, set apart from any form inside it. Never squeezed by a tall sheet. */
+.modal__footer {
+  border-block-start: 1px solid var(--color-border);
+  padding-block-start: var(--space-4);
+}
+.modal__actions > * {
+  flex-shrink: 0;
+}
