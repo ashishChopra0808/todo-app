@@ -49,7 +49,11 @@ test('group → invite by link → second person joins → assign → done + com
   await expect(invite.locator('.invite-code__value')).toHaveText(/^[A-Z0-9]{5}-[A-Z0-9]{5}$/);
   await expectAccessible(asha);
   const code = (await invite.locator('.invite-code__value').textContent())!.replace('-', '');
-  await invite.getByRole('button', { name: 'Done' }).click();
+  // Keyboard, not a tap: CI's headless Chromium mis-computes the tap point at the bottom of a
+  // scrolled sheet on the phone profile. (The Hindi test below still taps the same button.)
+  await invite.getByRole('button', { name: 'Done' }).focus();
+  await asha.keyboard.press('Enter');
+  await expect(invite).toBeHidden();
   await expect(asha.getByText('No tasks in this group yet.')).toBeVisible();
   await expectAccessible(asha);
 

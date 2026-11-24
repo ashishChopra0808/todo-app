@@ -1330,6 +1330,7 @@ textarea.input {
 .modal {
   inline-size: 100%;
   max-inline-size: 480px;
+  max-block-size: 90vh; /* browsers without dvh */
   max-block-size: 90dvh;
   overflow-y: auto;
   background: var(--color-surface);
