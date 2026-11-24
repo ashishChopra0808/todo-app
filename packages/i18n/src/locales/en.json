@@ -60,7 +60,8 @@
     "completed": "Completed",
     "groups": "Groups",
     "assignedByMe": "Assigned by me",
-    "newGroup": "New group"
+    "newGroup": "New group",
+    "inbox": "Inbox"
   },
   "language": {
     "label": "Language",
@@ -733,5 +734,135 @@
       "title": "Overdue",
       "body": "“{{task}}” is past its due date."
     }
+  },
+  "voice": {
+    "title": "Voice task",
+    "intro": "Say what needs doing. You can listen back before saving. Up to 2 minutes.",
+    "start": "Start recording",
+    "asking": "Allow the microphone…",
+    "stop": "Stop",
+    "again": "Record again",
+    "useIt": "Use this recording",
+    "recording": "Recording…",
+    "endsSoon": "Stops in {{seconds}} seconds",
+    "hint": "Up to 2 minutes. Your browser will ask to use the microphone.",
+    "denied": {
+      "title": "The microphone is blocked",
+      "body": "Allow it in your browser’s site settings (the icon next to the address), then try again."
+    },
+    "unsupported": "This browser can’t record audio. Try Chrome, Safari or Firefox.",
+    "noMic": "No microphone found. Check it’s connected and not used by another app.",
+    "yourRecording": "Your recording ({{duration}})",
+    "taskRecording": "Voice note {{duration}}",
+    "replyFrom": "Voice reply from {{name}} {{duration}}",
+    "defaultTitle": "Voice task · {{when}}",
+    "titleHint": "Change it to something you’ll recognise, or keep it.",
+    "save": "Save voice task",
+    "recordInstead": "Record a voice task instead",
+    "reply": "Voice",
+    "replyTitle": "Reply by voice",
+    "sendReply": "Send reply",
+    "replySent": "Voice reply sent."
+  },
+  "offline": {
+    "banner": "You’re offline. You can still read recent tasks.",
+    "bannerPending_one": "You’re offline. {{count}} change will sync when you’re back online.",
+    "bannerPending_other": "You’re offline. {{count}} changes will sync when you’re back online.",
+    "waiting": "Waiting to sync",
+    "savedLater": "Saved on this device. It will sync when you’re back online.",
+    "editNeedsConnection": "Editing needs a connection. You can still tick tasks done and add comments offline.",
+    "voiceNeedsConnection": "Recording needs a connection, because the audio has to upload."
+  },
+  "inbox": {
+    "title": "Inbox",
+    "readAll": "Mark all read",
+    "unread": "Unread",
+    "deletedTask": "a deleted task",
+    "empty": {
+      "title": "Nothing new",
+      "body": "You’ll see here when someone gives you a task, comments, or a task is due."
+    },
+    "assigned": "{{name}} gave you “{{task}}”",
+    "commented": "{{name}} commented on “{{task}}”",
+    "voiceReply": "{{name}} replied by voice on “{{task}}”",
+    "status": "{{name}} marked “{{task}}” {{status}}",
+    "dueSoon": "“{{task}}” is due within the hour",
+    "overdue": "“{{task}}” is overdue"
+  },
+  "notifySettings": {
+    "title": "Notifications",
+    "caption": "Which notifications you get, and where",
+    "type": "Tell me when",
+    "channels": {
+      "in_app": "In app",
+      "push": "Push",
+      "email": "Email"
+    },
+    "types": {
+      "task_assigned": "I’m given a task",
+      "comment_added": "Someone comments on my task",
+      "status_changed": "A task’s status changes",
+      "due_soon": "A task is due soon",
+      "overdue": "A task is overdue"
+    },
+    "noEmail": "Add a verified email address to get notifications by email."
+  },
+  "push": {
+    "onHere": "Push notifications are on for this device.",
+    "offHere": "Push notifications are off for this device.",
+    "turnOn": "Turn on",
+    "turnOff": "Turn off",
+    "denied": "Notifications are blocked for this site. Allow them in your browser’s settings to turn push on.",
+    "unsupported": "This browser can’t show push notifications.",
+    "iosInstall": "On iPhone, add ToDo to your Home Screen first (Share → Add to Home Screen), then turn on notifications there."
+  },
+  "install": {
+    "title": "App",
+    "button": "Install ToDo",
+    "installed": "ToDo is installed on this device.",
+    "ios": "To install on iPhone: tap Share, then “Add to Home Screen”.",
+    "other": "Use your browser’s menu and choose “Install app” or “Add to Home screen”."
+  },
+  "simpleSettings": {
+    "title": "Simple mode",
+    "body": "Big buttons, voice messages and no typing — for people who rarely use a phone. You can switch it on here for someone and hand them the phone.",
+    "turnOn": "Turn on Simple mode",
+    "turnOff": "Turn off Simple mode",
+    "off": "Simple mode is off."
+  },
+  "simple": {
+    "hello": "Hello, {{name}}",
+    "hear": "Hear",
+    "stopHear": "Stop",
+    "home": "Home",
+    "offline": "No internet. Messages will come when it’s back.",
+    "newMessage": "New message from {{name}}",
+    "openWith": "Talk with {{name}}",
+    "taskForYou": "A task for you",
+    "people": "Your people",
+    "noPeople": "Nobody yet. Ask your family to add you to their group.",
+    "unread_one": "{{count}} new",
+    "unread_other": "{{count}} new",
+    "new": "New",
+    "you": "You",
+    "done": "Done",
+    "answer": "Answer",
+    "messageFrom": "Message from {{name}} {{duration}}",
+    "speakTo": "Speak to {{name}}",
+    "send": "Send",
+    "sentTo": "Sent to {{name}}",
+    "noMessages": "No messages with {{name}} yet.",
+    "messageTitle": "Voice message · {{when}}",
+    "from": "From {{name}}",
+    "yesDone": "Yes, done",
+    "reply": "Reply",
+    "markedDone": "Marked as done. Thank you!",
+    "fullApp": "Switch to the full app",
+    "hearNewest": "You have a new message from {{name}}",
+    "noNew": "No new messages",
+    "hearTask": "A task for you: {{task}}",
+    "hearPeople": "Your people: {{names}}",
+    "hearConversation": "{{count}} messages with {{name}}. Press Speak to send a voice message.",
+    "hearTaskFrom": "A task from {{name}}: {{task}}. Press Yes, done when it is done, or Reply."
   }
 }

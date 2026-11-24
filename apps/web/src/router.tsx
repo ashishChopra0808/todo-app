@@ -47,6 +47,11 @@ const GroupSettingsPage = lazyRouteComponent(
 );
 const JoinPage = lazyRouteComponent(() => import('./routes/join'), 'JoinPage');
 const AdminPage = lazyRouteComponent(() => import('./routes/admin'), 'AdminPage');
+const VoiceTaskPage = lazyRouteComponent(() => import('./routes/task-form'), 'VoiceTaskPage');
+const InboxPage = lazyRouteComponent(() => import('./routes/inbox'), 'InboxPage');
+const SimpleHomePage = lazyRouteComponent(() => import('./routes/simple'), 'SimpleHomePage');
+const SimplePersonPage = lazyRouteComponent(() => import('./routes/simple'), 'SimplePersonPage');
+const SimpleTaskPage = lazyRouteComponent(() => import('./routes/simple'), 'SimpleTaskPage');
 
 interface Ctx {
   queryClient: QueryClient;
@@ -71,7 +76,8 @@ const guestRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: 'guest',
   beforeLoad: async ({ context }) => {
-    const me = await context.queryClient.fetchQuery(meQuery).catch(() => null);
+    // Ask the server, not the copy saved for offline use: it may be from a session that ended.
+    const me = await context.queryClient.fetchQuery({ ...meQuery, staleTime: 0 }).catch(() => null);
     if (me) throw redirect({ to: '/today' });
   },
 });
@@ -222,6 +228,28 @@ const settings = createRoute({
   path: '/settings',
   component: SettingsPage,
 });
+const voiceTask = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/tasks/voice',
+  validateSearch: (s: Record<string, unknown>): { group?: string } => ({ group: str(s.group) }),
+  component: VoiceTaskPage,
+});
+const inbox = createRoute({ getParentRoute: () => appRoute, path: '/inbox', component: InboxPage });
+const simpleHome = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/simple',
+  component: SimpleHomePage,
+});
+const simplePerson = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/simple/person/$id',
+  component: SimplePersonPage,
+});
+const simpleTask = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/simple/task/$id',
+  component: SimpleTaskPage,
+});
 const groupsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/groups',
@@ -272,6 +300,11 @@ const routeTree = rootRoute.addChildren([
     today,
     tasks,
     newTask,
+    voiceTask,
+    inbox,
+    simpleHome,
+    simplePerson,
+    simpleTask,
     taskDetail,
     editTask,
     settings,

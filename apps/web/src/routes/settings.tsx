@@ -2,6 +2,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { clearOfflineData } from '../api/persist';
+import { InstallApp, NotificationSettings } from '../components/NotificationSettings';
 import { normalizePhone, type MeDto, type Theme } from '@todo/shared';
 import { ApiError, api, del } from '../api/client';
 import { keys, useMe, useSessions, useUpdateProfile } from '../api/queries';
@@ -542,6 +544,7 @@ function SecuritySection({ me }: { me: MeDto }) {
               try {
                 await authApi.signOutAll();
                 qc.clear();
+                void clearOfflineData();
                 await navigate({ to: '/sign-in' });
               } catch (err) {
                 toast(errorMessage(err, t), { tone: 'error' });
@@ -606,6 +609,7 @@ function DataSection({ me }: { me: MeDto }) {
         password: me.hasPassword ? password : undefined,
       });
       qc.clear();
+      void clearOfflineData();
       await navigate({ to: '/sign-in', search: { deleted: '1' } });
     } catch (err) {
       if (err instanceof ApiError && err.code === 'reauth_required') {
@@ -684,6 +688,45 @@ function DataSection({ me }: { me: MeDto }) {
   );
 }
 
+/** Simple mode: big buttons, voice first, no typing. Usually switched on by a family member. */
+function SimpleModeSection({ me }: { me: MeDto }) {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const navigate = useNavigate();
+  const update = useUpdateProfile();
+  return (
+    <section className="settings-section" aria-labelledby="s-simple">
+      <h2 id="s-simple" className="section-title">
+        {t('simpleSettings.title')}
+      </h2>
+      <div className="card stack">
+        <p className="muted">{t('simpleSettings.body')}</p>
+        <button
+          type="button"
+          className="btn btn--secondary"
+          style={{ alignSelf: 'flex-start' }}
+          aria-pressed={me.simpleMode}
+          disabled={update.isPending}
+          onClick={() =>
+            update.mutate(
+              { simpleMode: !me.simpleMode },
+              {
+                onSuccess: (next) => {
+                  if (next.simpleMode) void navigate({ to: '/simple' });
+                  else toast(t('simpleSettings.off'));
+                },
+                onError: (err) => toast(errorMessage(err, t), { tone: 'error' }),
+              },
+            )
+          }
+        >
+          {me.simpleMode ? t('simpleSettings.turnOff') : t('simpleSettings.turnOn')}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 export function SettingsPage() {
   const { t } = useTranslation();
   const me = useMe();
@@ -709,6 +752,23 @@ export function SettingsPage() {
       <ProfileSection me={me.data} />
       <ContactSection me={me.data} />
       <PreferencesSection me={me.data} />
+      <section className="settings-section" id="notifications" aria-labelledby="s-notify">
+        <h2 id="s-notify" className="section-title">
+          {t('notifySettings.title')}
+        </h2>
+        <div className="card">
+          <NotificationSettings />
+        </div>
+      </section>
+      <SimpleModeSection me={me.data} />
+      <section className="settings-section" aria-labelledby="s-app">
+        <h2 id="s-app" className="section-title">
+          {t('install.title')}
+        </h2>
+        <div className="card stack">
+          <InstallApp />
+        </div>
+      </section>
       <SecuritySection me={me.data} />
       <DataSection me={me.data} />
       <section className="settings-section" aria-labelledby="s-about">
@@ -739,6 +799,7 @@ export function SettingsPage() {
         onClick={async () => {
           await authApi.signOut().catch(() => undefined);
           qc.clear();
+          void clearOfflineData();
           await navigate({ to: '/sign-in' });
         }}
       >

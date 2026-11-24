@@ -12,6 +12,7 @@ import {
   useUpdateTask,
 } from '../api/queries';
 import { Comments } from '../components/Comments';
+import { AudioPlayer, formatDuration } from '../components/Recorder';
 import { Dialog } from '../components/Dialog';
 import { Segmented } from '../components/Field';
 import { GroupIcon, MiniAvatar } from '../components/GroupBits';
@@ -293,6 +294,14 @@ export function TaskDetail({ id, variant, onClose, onDeleted }: DetailProps) {
         )}
       </dl>
 
+      {data.audio && (
+        <AudioPlayer
+          src={data.audio.url}
+          label={t('voice.taskRecording', {
+            duration: data.audio.durationMs ? formatDuration(data.audio.durationMs) : '',
+          })}
+        />
+      )}
       {data.description && (
         <section className="stack" aria-labelledby={`desc-${data.id}`}>
           <h3 id={`desc-${data.id}`} className="section-title">

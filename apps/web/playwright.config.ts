@@ -43,6 +43,11 @@ export default defineConfig({
     trace: 'retain-on-failure',
     locale: 'en-IN',
     timezoneId: 'Asia/Kolkata',
+    // A fake microphone (a test tone) so voice recording can be tested.
+    permissions: ['microphone'],
+    launchOptions: {
+      args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
+    },
   },
   projects: [
     { name: 'mobile', use: { ...devices['Pixel 7'], channel } },

@@ -69,6 +69,9 @@ RUN_WORKER_IN_PROCESS=true
 RATE_LIMITS_ENABLED=true
 SENTRY_DSN=<optional, from step 6>
 OWNER_EMAILS=<your email — only this verified account can open /admin to review reports>
+VAPID_PUBLIC_KEY=<web push public key — see "Phase 3" below>
+VAPID_PRIVATE_KEY=<web push private key>
+VAPID_SUBJECT=mailto:<your email>
 ```
 
 5. **Deploy**. The first build takes a few minutes. When it's done, open `<railway url>/health/ready`.
@@ -145,7 +148,33 @@ Use your phone for one account and a private/incognito window (or a second phone
 Invites by **email** to other people need your domain verified in Resend (until then Resend only delivers to
 your own address). Invites by **SMS** are emailed to `SMS_FORWARD_TO` on staging, like the codes.
 
+### Phase 3 and 4: voice, notifications, offline, Simple mode
+
+Push notifications need a key pair, made once: on any computer with Node.js run
+`npx web-push generate-vapid-keys` and paste the two values into the Railway `api` variables above.
+Without them everything else works and the push switches are simply hidden.
+
+1. **Voice task:** Today → the microphone button (next to New task) → allow the microphone → say
+   something → **Stop** → listen → **Use this recording** → change the title if you like → **Save**.
+   Open the task: the recording plays.
+2. **Voice reply:** open a group task → in Comments tap **Voice** → record → **Send reply**.
+3. **Notifications:** with two accounts in a group, give a task to the other person. Their
+   **Inbox** tab shows a badge; the entry opens the task. Comment and mark done: the creator is told.
+   Settings → **Notifications**: switch types on/off per channel, and **Turn on** push for the device
+   (on iPhone, add the app to the Home Screen first and turn it on from there).
+4. **Reminders:** a task due in the next hour gets a "due soon" notification (checked every 15 min);
+   a late task gets "overdue" once.
+5. **Offline:** open Tasks, turn on airplane mode. You see "You're offline". Tick a task done and add
+   a new one: both show **Waiting to sync**. Turn airplane mode off: they sync on their own.
+6. **Install:** Settings → **App** → **Install ToDo** (Android/desktop) or Share → Add to Home Screen
+   (iPhone). After a new deploy, the app offers **Reload** to update.
+7. **Simple mode:** on the second account, Settings → **Turn on Simple mode**. Big buttons, your
+   people, **Hear** reads the screen aloud. Tap a person → **Speak to …** → **Stop** → **Send**. The
+   first account gets it as a voice task. Settings is reachable from "Switch to the full app".
+
 ## Production later
+
+The full list is in `docs/launch-checklist.md`.
 
 Create a `production` environment in the same Railway project and a second Pages project
 (or a production branch) with its own secrets, a real domain, `SMS_DRIVER=msg91` and a verified
