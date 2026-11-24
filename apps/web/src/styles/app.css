@@ -107,6 +107,16 @@ p {
   flex-wrap: nowrap;
   flex: none;
 }
+/* A group's icon + name: takes the free space and lets a long name wrap, so the buttons beside
+   it always stay on screen. */
+.page-header > .page-header__group {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  gap: var(--space-3);
+}
+.page-header__group > :last-child {
+  min-inline-size: 0;
+}
 .page-header__titles {
   display: flex;
   flex-direction: column;

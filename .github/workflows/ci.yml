@@ -81,13 +81,9 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Install Chromium
-        # Real Google Chrome (what people use), not the stripped-down headless shell, which
-        # mis-places taps on the phone profile in long flows.
-        run: pnpm --filter @todo/web exec playwright install --with-deps chrome
+        run: pnpm --filter @todo/web exec playwright install --with-deps chromium
       - name: Run end-to-end tests
         run: pnpm test:e2e
-        env:
-          PW_CHANNEL: chrome
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

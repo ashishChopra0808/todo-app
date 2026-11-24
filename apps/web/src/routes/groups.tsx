@@ -180,7 +180,7 @@ export function GroupPage() {
     <Workspace>
       <main id="main" className="page">
         <header className="page-header" style={{ alignItems: 'center' }}>
-          <div className="row" style={{ flexWrap: 'nowrap', minInlineSize: 0, gap: 12 }}>
+          <div className="row page-header__group">
             <GroupIcon group={g} size="lg" />
             {groups.data && groups.data.length > 1 ? (
               <div className="group-switcher">
