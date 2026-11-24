@@ -3,8 +3,9 @@
 Shared tasks for families, offices and roommates — a responsive web app and installable PWA.
 English and Hindi, light and dark themes, WCAG 2.2 AA.
 
-**Status:** Phase 2 (groups, invites, assignment, comments, reports) on top of Phase 1 (auth, profile,
-personal tasks). Plan and decisions live in the claude.ai project docs: `phase-1-spec.md`,
+**Status:** Phases 1–4 built: auth and personal tasks; groups, invites, assignment, comments and
+reports; voice tasks and replies, notifications (in-app, push, email, reminders) and offline sync;
+Simple mode. What's left before launch is in `docs/launch-checklist.md`. Plan and decisions live in the claude.ai project docs: `phase-1-spec.md`,
 `phase-2-spec.md`, `tech-stack.md`, `design-direction.md`, `kickoff-checklist.md`.
 
 ## Repository layout
@@ -88,6 +89,17 @@ required setting is missing or unsafe (for example the log email driver, or an `
   20 uses), email or SMS (single use, only for that verified address — stored as a keyed hash, not the
   address). Up to 50 members per group and 50 groups per person. Removing a member (or leaving)
   unassigns their open tasks there. Deleting a group hides it at once and purges it after 180 days.
+- **Voice** — `POST /api/v1/files` takes a recording (type checked from its bytes: WebM, MP4 or Ogg;
+  up to 5 MB and 2 minutes) and returns an id to attach to a task or comment. Players get signed URLs.
+- **Notifications** — created on assign, comment and status change (never for the person who did
+  it), and by the 15-minute reminder job (due soon, overdue). Each type can be switched off per
+  channel: in-app, web push (VAPID keys), email. In-app entries are kept 90 days.
+- **Offline** — the web app saves recent data in IndexedDB and queues text task creates, done/undo
+  and text comments while offline (client ids make retries safe). The saved copy is wiped on log
+  out and whenever the server says the session ended.
+- **Simple mode** — `/simple`: a voice-first view over the same tasks and comments (a "message" is a
+  voice task given to someone in a shared group; a reply is a comment).
+- **Backups** — `.github/workflows/backup.yml` (daily pg_dump to R2, once its secrets are set).
 - **Safety** — a Report option on tasks, comments, members and groups. The owner review page `/admin`
   is only for verified accounts listed in `OWNER_EMAILS` (everyone else gets 404). Removing keeps the
   content hidden for 180 days as evidence; suspending signs the person out everywhere and hides their

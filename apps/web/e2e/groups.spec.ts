@@ -201,6 +201,9 @@ test('existing account logs in from an invite, even when the browser autofills t
   ).newPage();
   const email = uniqueEmail('ravi');
   await signUpByEmail(ravi, email, 'Ravi Kumar');
+  // Signed out "elsewhere": let in-flight requests finish first, or a late response can set
+  // the session cookie again.
+  await ravi.goto('about:blank');
   await ravi.context().clearCookies();
 
   await ravi.goto(`/join/${code}`);

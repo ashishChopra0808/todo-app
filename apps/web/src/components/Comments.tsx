@@ -1,7 +1,15 @@
 import { useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LIMITS, type CommentDto, type TaskDto } from '@todo/shared';
-import { useAddComment, useComments, useDeleteComment, useEditComment } from '../api/queries';
+import { useOnline, usePendingSync } from '../api/offline';
+import {
+  useAddComment,
+  useAddVoiceComment,
+  useComments,
+  useDeleteComment,
+  useEditComment,
+} from '../api/queries';
+import { AudioPlayer, Recorder, formatDuration } from './Recorder';
 import { errorMessage } from '../lib/errors';
 import { formatDateTime } from '../lib/format';
 import { intlLocale } from '../lib/i18n';
@@ -19,7 +27,9 @@ function CommentItem({
   tz,
   onReport,
   onDelete,
+  pending,
 }: {
+  pending: boolean;
   c: CommentDto;
   task: TaskDto;
   meId: string;
@@ -98,7 +108,23 @@ function CommentItem({
         ) : c.removed ? (
           <p className="comment__text comment__text--removed">{t('task.comments.removed')}</p>
         ) : (
-          <p className="comment__text">{c.body}</p>
+          <>
+            {c.body && <p className="comment__text">{c.body}</p>}
+            {c.audio && (
+              <AudioPlayer
+                src={c.audio.url}
+                label={t('voice.replyFrom', {
+                  name,
+                  duration: c.audio.durationMs ? formatDuration(c.audio.durationMs) : '',
+                })}
+              />
+            )}
+            {pending && (
+              <span className="meta task-meta__sync">
+                <Icon name="sync" size={14} /> {t('offline.waiting')}
+              </span>
+            )}
+          </>
         )}
         {!editing && (c.permissions.edit || c.permissions.delete || c.permissions.report) && (
           <div className="comment__actions">
@@ -148,6 +174,10 @@ export function Comments({ task, meId, tz }: { task: TaskDto; meId: string; tz: 
   const add = useAddComment(task.id);
   const remove = useDeleteComment(task.id);
   const [body, setBody] = useState('');
+  const [recording, setRecording] = useState(false);
+  const pendingSync = usePendingSync();
+  const online = useOnline();
+  const voice = useAddVoiceComment(task.id);
   const [reporting, setReporting] = useState<CommentDto | null>(null);
   const [deleting, setDeleting] = useState<CommentDto | null>(null);
   const items = list.data?.pages.flatMap((p) => p.items) ?? [];
@@ -155,13 +185,13 @@ export function Comments({ task, meId, tz }: { task: TaskDto; meId: string; tz: 
 
   async function send(e?: FormEvent) {
     e?.preventDefault();
-    if (!body.trim() || add.isPending) return;
-    try {
-      await add.mutateAsync(body);
-      setBody('');
-    } catch (err) {
-      toast(errorMessage(err, t), { tone: 'error' });
-    }
+    if (!body.trim()) return;
+    // Shows at once; offline it waits ("waiting to sync") and is sent when back online.
+    add.mutate(
+      { taskId: task.id, id: crypto.randomUUID(), body: body.trim() },
+      { onError: (err) => toast(errorMessage(err, t), { tone: 'error' }) },
+    );
+    setBody('');
   }
 
   // Ctrl/⌘ + Enter sends; Enter alone makes a new line (comments can be several lines).
@@ -192,6 +222,7 @@ export function Comments({ task, meId, tz }: { task: TaskDto; meId: string; tz: 
               tz={tz}
               onReport={setReporting}
               onDelete={setDeleting}
+              pending={pendingSync.comments.has(c.id)}
             />
           ))}
         </ol>
@@ -222,16 +253,42 @@ export function Comments({ task, meId, tz }: { task: TaskDto; meId: string; tz: 
             onKeyDown={onKey}
             maxLength={LIMITS.comment}
           />
-          <button
-            type="submit"
-            className="btn btn--primary"
-            disabled={!body.trim() || add.isPending}
-          >
-            {add.isPending ? <Spinner /> : <Icon name="send" size={18} />}
-            {t('task.comments.send')}
-          </button>
+          {body.trim() ? (
+            <button type="submit" className="btn btn--primary">
+              <Icon name="send" size={18} />
+              {t('task.comments.send')}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn btn--secondary"
+              disabled={!online}
+              title={online ? undefined : t('offline.voiceNeedsConnection')}
+              onClick={() => setRecording(true)}
+            >
+              <Icon name="mic" size={18} />
+              {t('voice.reply')}
+            </button>
+          )}
         </form>
       )}
+      <Dialog open={recording} onClose={() => setRecording(false)} title={t('voice.replyTitle')}>
+        {recording && (
+          <Recorder
+            useLabel={t('voice.sendReply')}
+            busy={voice.isPending}
+            onUse={(rec) =>
+              voice.mutate(rec, {
+                onSuccess: () => {
+                  setRecording(false);
+                  toast(t('voice.replySent'));
+                },
+                onError: (err) => toast(errorMessage(err, t), { tone: 'error' }),
+              })
+            }
+          />
+        )}
+      </Dialog>
       <Dialog
         open={!!deleting}
         onClose={() => setDeleting(null)}

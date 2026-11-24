@@ -17,7 +17,9 @@ import { AppError, notFound } from '../lib/errors';
 import { newId } from '../lib/ids';
 import type { AvatarUrl } from './avatars';
 import type { DailyLimits } from './daily-limits';
+import type { FileService } from './files';
 import type { Viewer } from './membership';
+import type { NotificationService } from './notifications';
 import { taskFacts, type TaskService } from './tasks';
 
 type CommentRow = typeof comments.$inferSelect;
@@ -29,6 +31,7 @@ export function createCommentService(
   tasks: TaskService,
   avatarUrl: AvatarUrl,
   limits: DailyLimits,
+  extra: { files: FileService; notify: NotificationService['notify'] },
 ) {
   const selectJoined = () =>
     db
@@ -57,6 +60,7 @@ export function createCommentService(
           }
         : null,
       body: removed ? null : r.c.body,
+      audio: removed ? null : await extra.files.audioDto(r.c.audioFileId),
       removed,
       editedAt: r.c.editedAt?.toISOString() ?? null,
       createdAt: r.c.createdAt.toISOString(),
@@ -124,9 +128,17 @@ export function createCommentService(
           throw new AppError('conflict', 'This id is already used');
         }
       }
+      if (input.audioFileId)
+        await extra.files.claimable(viewer.id, input.audioFileId, 'comment_audio');
       await limits.consume('comments', viewer.id);
       await db.transaction(async (tx) => {
-        await tx.insert(comments).values({ id, taskId, authorId: viewer.id, body: input.body });
+        await tx.insert(comments).values({
+          id,
+          taskId,
+          authorId: viewer.id,
+          body: input.body ?? null,
+          audioFileId: input.audioFileId ?? null,
+        });
         await tx.insert(taskActivity).values({
           id: newId(),
           taskId,
@@ -135,6 +147,16 @@ export function createCommentService(
           toValue: { commentId: id },
           ipHash,
         });
+      });
+      await extra.notify({
+        type: 'comment_added',
+        taskId,
+        taskTitle: task.title,
+        actorId: viewer.id,
+        recipients: [task.createdBy, task.assigneeId],
+        data: input.body
+          ? { excerpt: input.body.length > 80 ? `${input.body.slice(0, 79)}…` : input.body }
+          : { voice: true },
       });
       return { comment: await getDto(viewer, id), created: true };
     },
@@ -160,6 +182,7 @@ export function createCommentService(
           purgeAfter: new Date(Date.now() + RETENTION_DAYS * 24 * 3600 * 1000),
         })
         .where(eq(comments.id, id));
+      await extra.files.hide(c.audioFileId);
     },
   };
 }

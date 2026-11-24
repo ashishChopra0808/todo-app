@@ -56,7 +56,7 @@ export function JoinPage() {
   const toast = useToast();
   const navigate = useNavigate();
   const { code } = useParams({ strict: false }) as { code: string };
-  const me = useQuery({ ...meQuery, retry: false });
+  const me = useQuery({ ...meQuery, retry: false, staleTime: 0 });
   const signedIn = !!me.data;
   const preview = useInvitePreview(code);
   const accept = useAcceptInvite();
@@ -85,7 +85,7 @@ export function JoinPage() {
   }
 
   let body;
-  if (preview.isPending || me.isPending) body = <LoadingList rows={2} />;
+  if (preview.isPending || me.isPending || me.isFetching) body = <LoadingList rows={2} />;
   else if (preview.isError) {
     const err = preview.error;
     const reason =

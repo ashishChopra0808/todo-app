@@ -48,24 +48,14 @@ export default defineConfig({
           },
         ],
       },
-      workbox: {
-        // Phase 1: cache the app shell only. Phase 3 adds offline task data and a sync queue.
+      // Our own service worker (src/sw.ts): app shell + web push + notification clicks.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png}'],
         // The password-strength dictionaries are large and only needed on sign-up/reset screens.
         globIgnores: ['**/password-*.js'],
-        navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//],
-        // Fonts are split by script (unicode-range); cache each one the first time it is used.
-        runtimeCaching: [
-          {
-            urlPattern: ({ request }) => request.destination === 'font',
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'fonts',
-              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
-            },
-          },
-        ],
       },
     }),
   ],

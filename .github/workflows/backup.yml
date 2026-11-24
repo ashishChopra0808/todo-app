@@ -1,0 +1,52 @@
+name: Daily database backup
+
+# Every day at 02:30 IST: a compressed pg_dump of the database, uploaded to Cloudflare R2.
+# Does nothing until these repository secrets exist (Settings → Secrets and variables → Actions):
+#   BACKUP_DATABASE_URL   Postgres connection string (Railway → Postgres → Connect → Public URL)
+#   BACKUP_S3_ENDPOINT    https://<account-id>.r2.cloudflarestorage.com
+#   BACKUP_S3_BUCKET      a separate, private bucket, e.g. todo-backups
+#   BACKUP_S3_ACCESS_KEY_ID / BACKUP_S3_SECRET_ACCESS_KEY   an R2 token for that bucket only
+# Keep 30 days with an R2 lifecycle rule on the bucket. Restore steps: docs/launch-checklist.md.
+on:
+  schedule:
+    - cron: '0 21 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+      BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+    steps:
+      - name: Skip until configured
+        id: check
+        run: |
+          if [ -z "$DATABASE_URL" ] || [ -z "$BUCKET" ]; then
+            echo "Backup secrets are not set yet; skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install pg_dump 17
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -q && sudo apt-get install -yq postgresql-client-17
+      - name: Dump and upload
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          FILE="todo-$(date -u +%Y-%m-%dT%H%MZ).dump"
+          /usr/lib/postgresql/17/bin/pg_dump --format=custom --no-owner --no-privileges "$DATABASE_URL" > "$FILE"
+          test -s "$FILE"
+          aws s3 cp "$FILE" "s3://$BUCKET/daily/$FILE" --endpoint-url "$ENDPOINT" --only-show-errors
+          echo "Uploaded $FILE ($(du -h "$FILE" | cut -f1))"

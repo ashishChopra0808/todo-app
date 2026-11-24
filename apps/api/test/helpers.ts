@@ -26,7 +26,7 @@ export function useApp(overrides: Record<string, string> = {}): TestCtx {
   });
   beforeEach(async () => {
     await ctx.deps.db.execute(
-      sql`TRUNCATE users, sessions, accounts, verifications, consents, deleted_accounts, audit_logs, files, tasks, task_activity, groups, group_members, group_invites, comments, reports CASCADE`,
+      sql`TRUNCATE users, sessions, accounts, verifications, consents, deleted_accounts, audit_logs, files, tasks, task_activity, groups, group_members, group_invites, comments, reports, notifications, notification_preferences, push_subscriptions CASCADE`,
     );
     await ctx.deps.redis.flushdb();
   });

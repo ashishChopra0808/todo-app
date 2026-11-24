@@ -1,6 +1,7 @@
 import { Link, useSearch } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import type { TaskDto, TaskPriority, TaskStatus } from '@todo/shared';
+import { usePendingSync } from '../api/offline';
 import { useToggleStatus } from '../api/queries';
 import { errorMessage } from '../lib/errors';
 import { formatDue } from '../lib/format';
@@ -79,6 +80,7 @@ export function TaskRow({
   meId?: string;
 }) {
   const { t } = useTranslation();
+  const pending = usePendingSync();
   const wide = useMediaQuery(WIDE_QUERY);
   const search = useSearch({ strict: false }) as { task?: string };
   const selected = wide && search.task === task.id;
@@ -104,8 +106,19 @@ export function TaskRow({
         data-task-link={task.id}
         aria-current={selected ? 'true' : undefined}
       >
-        <span className="task-row__title">{task.title}</span>
+        <span className="task-row__title">
+          {task.source === 'voice' && (
+            <Icon name="mic" size={14} className="task-row__voice" aria-hidden="true" />
+          )}
+          {task.title}
+        </span>
         <span className="task-meta">
+          {pending.tasks.has(task.id) && (
+            <span className="task-meta__item task-meta__sync">
+              <Icon name="sync" size={14} />
+              {t('offline.waiting')}
+            </span>
+          )}
           {task.group && !hideGroup && (
             <span className="task-meta__item">
               <GroupIcon group={task.group} size="sm" />

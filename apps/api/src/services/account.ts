@@ -19,6 +19,9 @@ import {
   files,
   groupMembers,
   groups,
+  notificationPreferences,
+  notifications,
+  pushSubscriptions,
   reports,
   sessions,
   taskActivity,
@@ -212,6 +215,12 @@ export function createAccountService(
           createdAt: c.createdAt,
           editedAt: c.editedAt,
         })),
+        notificationSettings: (
+          await db.query.notificationPreferences.findMany({
+            where: eq(notificationPreferences.userId, user.id),
+            columns: { type: true, channel: true, enabled: true },
+          })
+        ).map((p) => ({ ...p })),
         reportsMade: (
           await db.query.reports.findMany({
             where: eq(reports.reporterId, user.id),
@@ -270,6 +279,8 @@ export function createAccountService(
           .set({ deletedAt: now, purgeAfter })
           .where(and(eq(comments.authorId, user.id), isNull(comments.deletedAt)));
         await groupService.handOverOnAccountDelete(tx, user.id);
+        await tx.delete(pushSubscriptions).where(eq(pushSubscriptions.userId, user.id));
+        await tx.delete(notifications).where(eq(notifications.userId, user.id));
         await tx
           .update(files)
           .set({ deletedAt: now, purgeAfter: now })

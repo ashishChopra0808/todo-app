@@ -62,6 +62,29 @@ export const OTP = {
 
 export const LOGIN_LOCKOUT = { maxFailures: 10, lockMinutes: 15 } as const;
 
+export const NOTIFICATION_TYPES = [
+  'task_assigned',
+  'comment_added',
+  'status_changed',
+  'due_soon',
+  'overdue',
+] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
+export const NOTIFICATION_CHANNELS = ['in_app', 'push', 'email'] as const;
+export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
+
+export const AUDIO = {
+  maxMs: 120_000,
+  maxBytes: 5 * 1024 * 1024,
+  /** What browsers record: WebM/Opus (Chrome, Firefox, Android), MP4/AAC (Safari, iPhone), Ogg. */
+  mimeTypes: ['audio/webm', 'audio/mp4', 'audio/ogg'] as const,
+} as const;
+export type AudioMime = (typeof AUDIO.mimeTypes)[number];
+
+/** Reminders: a timed task is "due soon" this long before it's due. */
+export const REMINDERS = { dueSoonMinutes: 60, everyMinutes: 15 } as const;
+
 export const INVITE_CHANNELS = ['link', 'email', 'phone'] as const;
 export type InviteChannel = (typeof INVITE_CHANNELS)[number];
 
@@ -105,6 +128,7 @@ export const DAILY_LIMITS = {
   tasks: 200,
   comments: 300,
   reports: 20,
+  voiceUploads: 100,
 } as const;
 export type DailyLimitKind = keyof typeof DAILY_LIMITS;
 

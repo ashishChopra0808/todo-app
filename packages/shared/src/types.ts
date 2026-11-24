@@ -1,6 +1,8 @@
 import type {
   AppLocale,
   ActivityType,
+  NotificationChannel,
+  NotificationType,
   GroupRole,
   InviteChannel,
   ReportAction,
@@ -62,6 +64,8 @@ export interface TaskDto {
   createdBy: UserRef | null;
   assignee: PersonRef | null;
   commentCount: number;
+  /** Voice tasks: the recording (signed URL, valid ~15 min). */
+  audio: AudioDto | null;
   completedAt: string | null;
   version: number;
   createdAt: string;
@@ -150,8 +154,9 @@ export interface CommentDto {
   id: string;
   taskId: string;
   author: PersonRef | null;
-  /** null when removed by a moderator. */
+  /** null when removed by a moderator, or for a voice reply without text. */
   body: string | null;
+  audio: AudioDto | null;
   removed: boolean;
   editedAt: string | null;
   createdAt: string;
@@ -188,4 +193,88 @@ export interface AdminReportDetailDto extends AdminReportDto {
   group: GroupRef | null;
   /** Nearby comments or the task for context. */
   context: Array<{ label: string; text: string; at: string }>;
+}
+
+export interface AudioDto {
+  id: string;
+  url: string;
+  mimeType: string;
+  durationMs: number | null;
+}
+
+export interface FileDto {
+  id: string;
+  kind: 'task_audio' | 'comment_audio';
+  mimeType: string;
+  sizeBytes: number;
+  durationMs: number | null;
+}
+
+export interface NotificationDto {
+  id: string;
+  type: NotificationType;
+  task: { id: string; title: string } | null;
+  actor: PersonRef | null;
+  /** Extra details: the new status, a comment excerpt, the group name. */
+  data: Record<string, unknown>;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface NotificationListResponse {
+  items: NotificationDto[];
+  nextCursor: string | null;
+  unreadCount: number;
+}
+
+export interface NotificationPreferenceDto {
+  type: NotificationType;
+  channel: NotificationChannel;
+  enabled: boolean;
+}
+
+export interface NotificationPreferencesDto {
+  preferences: NotificationPreferenceDto[];
+  /** Web push needs server keys; false until they are configured. */
+  pushAvailable: boolean;
+  /** Email needs a verified, real address on the account. */
+  emailAvailable: boolean;
+}
+
+/* ---------- Simple mode ---------- */
+
+/** One item in a conversation with a person: a task between you, or a reply on it. */
+export interface SimpleItemDto {
+  kind: 'task' | 'reply';
+  id: string;
+  taskId: string;
+  fromMe: boolean;
+  from: PersonRef | null;
+  title: string | null;
+  text: string | null;
+  audio: AudioDto | null;
+  status: TaskDto['status'];
+  /** Tasks only: assigned to me and not done yet. */
+  forMe: boolean;
+  unread: boolean;
+  createdAt: string;
+}
+
+export interface SimplePersonDto extends PersonRef {
+  /** A group you share, used when sending them something. */
+  groupId: string;
+  unread: number;
+}
+
+export interface SimpleHomeDto {
+  /** The newest unheard message from someone, if any. */
+  newest: SimpleItemDto | null;
+  /** The oldest open task given to me by someone else. */
+  taskForMe: SimpleItemDto | null;
+  people: SimplePersonDto[];
+}
+
+export interface SimpleConversationDto {
+  person: SimplePersonDto;
+  items: SimpleItemDto[];
 }

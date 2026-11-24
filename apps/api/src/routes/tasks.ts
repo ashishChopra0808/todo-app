@@ -22,9 +22,11 @@ export function taskRoutes(app: FastifyInstance, deps: AppDeps) {
     return reply.status(created ? 201 : 200).send(task);
   });
 
-  app.get('/api/v1/tasks/:id', pre, async (req) =>
-    deps.tasks.get(await viewer(req), idParam(req.params)),
-  );
+  app.get('/api/v1/tasks/:id', pre, async (req) => {
+    const task = await deps.tasks.get(await viewer(req), idParam(req.params));
+    await deps.notifications.markTaskRead(req.user!.id, task.id);
+    return task;
+  });
 
   app.patch('/api/v1/tasks/:id', pre, async (req) =>
     deps.tasks.update(

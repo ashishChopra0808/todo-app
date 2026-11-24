@@ -52,6 +52,10 @@ const schema = z
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(1),
 
     SENTRY_DSN: z.string().optional(),
+    /** Web push (VAPID) keys: `npx web-push generate-vapid-keys`. Without them push is off. */
+    VAPID_PUBLIC_KEY: z.string().optional(),
+    VAPID_PRIVATE_KEY: z.string().optional(),
+    VAPID_SUBJECT: z.string().default('mailto:support@todo.invalid'),
     /**
      * Comma-separated emails of the app owner(s). Only these verified accounts can open the
      * review page (/admin) and act on reports. Empty = nobody.

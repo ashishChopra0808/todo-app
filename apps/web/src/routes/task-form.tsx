@@ -1,3 +1,4 @@
+import { onlineManager } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -18,14 +19,19 @@ import {
   useMembers,
   useTask,
   useUpdateTask,
+  uploadAudio,
+  type Recording,
 } from '../api/queries';
-import { FormError, Segmented } from '../components/Field';
+import { useOnline } from '../api/offline';
+import { FormError, Segmented, TextField } from '../components/Field';
+import { AudioPlayer, Recorder, formatDuration } from '../components/Recorder';
+import { intlLocale } from '../lib/i18n';
 import { GroupIcon, MiniAvatar } from '../components/GroupBits';
 import { Icon } from '../components/Icon';
 import { ErrorState, LoadingList, Spinner } from '../components/States';
 import { useToast } from '../components/Toasts';
 import { errorMessage, fieldErrors } from '../lib/errors';
-import { addDaysIso } from '../lib/format';
+import { addDaysIso, formatDateTime } from '../lib/format';
 import { WIDE_QUERY, useMediaQuery } from '../lib/useMediaQuery';
 
 type When = 'none' | 'today' | 'tomorrow' | 'weekend' | 'pick';
@@ -153,9 +159,11 @@ function TaskForm({
 }: {
   task?: TaskDto;
   initialGroup?: string | null;
-  onDone: (t: TaskDto) => void;
+  /** The saved task; undefined when it was queued offline. */
+  onDone: (t: TaskDto | undefined) => void;
 }) {
   const { t } = useTranslation();
+  const toast = useToast();
   const me = useMe();
   const meId = me.data?.id ?? '';
   const [groupId, setGroupId] = useState<string | null>(
@@ -220,10 +228,22 @@ function TaskForm({
       : groupId
         ? { groupId, assigneeId }
         : {};
+    if (!onlineManager.isOnline()) {
+      if (task) {
+        setError(t('offline.editNeedsConnection'));
+        return;
+      }
+      // Offline: the task shows at once, marked "waiting to sync", and is sent later.
+      const vars = { id: crypto.randomUUID(), ...body, ...where };
+      create.mutate(vars);
+      toast(t('offline.savedLater'));
+      onDone(undefined);
+      return;
+    }
     try {
       const saved = task
         ? await update.mutateAsync({ id: task.id, version: task.version, ...body, ...where })
-        : await create.mutateAsync({ ...body, ...where });
+        : await create.mutateAsync({ id: crypto.randomUUID(), ...body, ...where });
       onDone(saved);
     } catch (err) {
       setFields(fieldErrors(err, t));
@@ -435,6 +455,14 @@ export function NewTaskPage() {
   return (
     <main id="main" className="page" style={{ paddingBlockEnd: 32 }}>
       <FormHeader title={t('task.new')} cancelTo={back} />
+      <Link
+        to="/tasks/voice"
+        search={search.group ? { group: search.group } : {}}
+        className="btn btn--secondary"
+      >
+        <Icon name="mic" size={18} />
+        {t('voice.recordInstead')}
+      </Link>
       <TaskForm
         initialGroup={search.group ?? null}
         onDone={() => {
@@ -472,7 +500,7 @@ export function EditTaskPage() {
           key={task.data.version}
           task={task.data}
           onDone={(saved) => {
-            if (saved.version !== task.data.version) toast(t('task.saved'));
+            if (saved && saved.version !== task.data.version) toast(t('task.saved'));
             toDetail();
           }}
         />
@@ -480,6 +508,121 @@ export function EditTaskPage() {
       <Link to="/tasks/$id" params={{ id }} className="visually-hidden">
         {t('task.detail.back')}
       </Link>
+    </main>
+  );
+}
+
+/** Voice task: record → check → title (pre-filled), list and person → save. */
+export function VoiceTaskPage() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const toast = useToast();
+  const online = useOnline();
+  const me = useMe();
+  const meId = me.data?.id ?? '';
+  const tz = me.data?.timeZone ?? 'Asia/Kolkata';
+  const search = useSearch({ strict: false }) as { group?: string };
+  const create = useCreateTask();
+  const [rec, setRec] = useState<Recording | null>(null);
+  const [title, setTitle] = useState('');
+  const [groupId, setGroupId] = useState<string | null>(search.group ?? null);
+  const [assigneeId, setAssigneeId] = useState<string | null>(meId || null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const back = () =>
+    window.history.length > 1 ? window.history.back() : void navigate({ to: '/today' });
+
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    if (!rec) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const file = await uploadAudio(rec, 'task_audio');
+      await create.mutateAsync({
+        id: crypto.randomUUID(),
+        title:
+          title.trim() ||
+          t('voice.defaultTitle', {
+            when: formatDateTime(new Date().toISOString(), tz, intlLocale()),
+          }),
+        audioFileId: file.id,
+        ...(groupId ? { groupId, assigneeId } : {}),
+      });
+      toast(t('task.created'));
+      back();
+    } catch (err) {
+      setError(errorMessage(err, t));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main id="main" className="page" style={{ paddingBlockEnd: 32 }}>
+      <FormHeader title={t('voice.title')} cancelTo={back} />
+      {!online ? (
+        <p className="form-error" role="alert">
+          {t('offline.voiceNeedsConnection')}
+        </p>
+      ) : !rec ? (
+        <section className="card stack-lg" aria-label={t('voice.title')}>
+          <p className="muted">{t('voice.intro')}</p>
+          <Recorder
+            useLabel={t('voice.useIt')}
+            onUse={(r) => {
+              setRec(r);
+              setTitle(
+                t('voice.defaultTitle', {
+                  when: formatDateTime(new Date().toISOString(), tz, intlLocale()),
+                }),
+              );
+            }}
+          />
+        </section>
+      ) : (
+        <form className="form" onSubmit={save} noValidate>
+          <AudioPlayer
+            src={URL.createObjectURL(rec.blob)}
+            label={t('voice.yourRecording', { duration: formatDuration(rec.durationMs) })}
+          />
+          <button
+            type="button"
+            className="btn btn--ghost btn--small"
+            style={{ alignSelf: 'flex-start' }}
+            onClick={() => setRec(null)}
+          >
+            <Icon name="mic" size={18} />
+            {t('voice.again')}
+          </button>
+          <TextField
+            label={t('task.fields.title')}
+            hint={t('voice.titleHint')}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            maxLength={LIMITS.taskTitle}
+          />
+          <WhereAndWho
+            groupId={groupId}
+            assigneeId={assigneeId}
+            meId={meId}
+            canMove
+            canAssign
+            onGroup={(g) => {
+              setGroupId(g);
+              setAssigneeId(g ? meId : null);
+            }}
+            onAssignee={setAssigneeId}
+          />
+          <FormError message={error} />
+          <div className="sticky-actions">
+            <button type="submit" className="btn btn--primary btn--block" disabled={busy}>
+              {busy && <Spinner />}
+              {t('voice.save')}
+            </button>
+          </div>
+        </form>
+      )}
     </main>
   );
 }

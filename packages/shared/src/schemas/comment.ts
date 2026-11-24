@@ -9,11 +9,14 @@ export const commentBodySchema = z
 
 export const commentCreateSchema = z
   .object({
-    /** Client-generated id so offline retries (Phase 3) are idempotent. */
+    /** Client-generated id so offline retries are idempotent. */
     id: z.uuid().optional(),
-    body: commentBodySchema,
+    body: commentBodySchema.optional(),
+    /** Voice reply: a recording uploaded with POST /files (kind comment_audio). */
+    audioFileId: z.uuid().optional(),
   })
-  .strict();
+  .strict()
+  .refine((c) => !!c.body || !!c.audioFileId, { error: 'required', path: ['body'] });
 export type CommentCreateInput = z.input<typeof commentCreateSchema>;
 
 export const commentUpdateSchema = z.object({ body: commentBodySchema }).strict();

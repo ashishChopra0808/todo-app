@@ -1,6 +1,7 @@
 import {
   infiniteQueryOptions,
   useInfiniteQuery,
+  type QueryKey,
   keepPreviousData,
   queryOptions,
   useMutation,
@@ -28,13 +29,19 @@ import type {
   ReportCreateInput,
   SessionDto,
   TaskCountsDto,
-  TaskCreateInput,
   TaskDto,
   TaskListResponse,
   TaskUpdateInput,
   TaskView,
+  FileDto,
+  NotificationListResponse,
+  NotificationPreferencesDto,
+  NotificationPreferenceDto,
+  SimpleConversationDto,
+  SimpleHomeDto,
 } from '@todo/shared';
-import { ApiError, del, get, patch, post } from './client';
+import { OFFLINE, type AddCommentVars, type CreateTaskVars, type SetStatusVars } from './offline';
+import { ApiError, del, get, patch, post, put } from './client';
 
 export const keys = {
   me: ['me'] as const,
@@ -51,6 +58,11 @@ export const keys = {
   invites: (id: string) => ['groups', 'invites', id] as const,
   invitePreview: (code: string) => ['invite', code] as const,
   admin: ['admin'] as const,
+  notifications: ['notifications', 'list'] as const,
+  unread: ['notifications', 'unread'] as const,
+  notificationPrefs: ['notifications', 'prefs'] as const,
+  simpleHome: ['simple', 'home'] as const,
+  simplePerson: (id: string) => ['simple', 'person', id] as const,
 };
 
 export const meQuery = {
@@ -157,11 +169,71 @@ function patchTaskInCaches(qc: QueryClient, next: TaskDto) {
   updateLists(qc, (items) => items.map((t) => (t.id === next.id ? next : t)));
 }
 
+/** A task as it will look once saved, so it shows at once (and offline). */
+function optimisticTask(qc: QueryClient, v: CreateTaskVars): TaskDto {
+  const me = qc.getQueryData<MeDto>(keys.me);
+  const group = v.groupId
+    ? qc.getQueryData<GroupDto[]>(keys.groups)?.find((g) => g.id === v.groupId)
+    : null;
+  const now = new Date().toISOString();
+  const assigneeId = v.groupId ? (v.assigneeId ?? null) : (me?.id ?? null);
+  return {
+    id: v.id,
+    title: v.title,
+    description: v.description ?? null,
+    dueAt: v.dueAt ?? null,
+    dueHasTime: !!(v.dueAt && v.dueHasTime),
+    priority: v.priority ?? 'medium',
+    status: v.status ?? 'todo',
+    source: v.audioFileId ? 'voice' : 'text',
+    groupId: v.groupId ?? null,
+    group: group ? { id: group.id, name: group.name, icon: group.icon } : null,
+    createdBy: me ? { id: me.id, name: me.name } : null,
+    assignee:
+      assigneeId === me?.id && me
+        ? { id: me.id, name: me.name, avatarUrl: me.avatarUrl ?? null }
+        : assigneeId
+          ? { id: assigneeId, name: '', avatarUrl: null }
+          : null,
+    commentCount: 0,
+    audio: null,
+    completedAt: v.status === 'done' ? now : null,
+    version: 1,
+    createdAt: now,
+    updatedAt: now,
+    permissions: {
+      edit: true,
+      delete: true,
+      changeStatus: true,
+      assign: !!v.groupId,
+      move: true,
+      comment: true,
+      report: false,
+    },
+  };
+}
+
+/**
+ * Creates a task. Pass your own `id` (crypto.randomUUID()): offline, the task appears at once
+ * marked "waiting to sync" and is sent when the connection returns.
+ */
 export function useCreateTask() {
   const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: TaskCreateInput) =>
-      post<TaskDto>('/api/v1/tasks', { id: crypto.randomUUID(), ...input }),
+  return useMutation<TaskDto, Error, CreateTaskVars, { optimistic: TaskDto }>({
+    mutationKey: OFFLINE.createTask,
+    onMutate: async (v) => {
+      await qc.cancelQueries({ queryKey: ['tasks', 'list'] });
+      const optimistic = optimisticTask(qc, v);
+      qc.setQueryData(keys.task(v.id), optimistic);
+      updateLists(qc, (items) =>
+        items.some((t) => t.id === v.id) ? items : [optimistic, ...items],
+      );
+      return { optimistic };
+    },
+    onError: (_e, v) => {
+      qc.removeQueries({ queryKey: keys.task(v.id) });
+      updateLists(qc, (items) => items.filter((t) => t.id !== v.id));
+    },
     onSuccess: (task) => {
       qc.setQueryData(keys.task(task.id), task);
       void qc.invalidateQueries({ queryKey: keys.tasks });
@@ -186,27 +258,25 @@ export function useUpdateTask() {
   });
 }
 
-/** Optimistic status change: the tick appears at once and rolls back if the server refuses. */
+/**
+ * Optimistic status change: the tick appears at once and rolls back if the server refuses.
+ * Offline, it waits (marked "waiting to sync") and is sent when the connection returns.
+ */
 export function useToggleStatus() {
   const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (task: TaskDto) =>
-      patch<TaskDto>(`/api/v1/tasks/${task.id}`, {
-        version: task.version,
-        status: task.status === 'done' ? 'todo' : 'done',
-      }),
-    onMutate: async (task) => {
+  const m = useMutation<TaskDto, Error, SetStatusVars, { snapshot: Array<[QueryKey, unknown]> }>({
+    mutationKey: OFFLINE.setStatus,
+    onMutate: async ({ task, status }) => {
       await qc.cancelQueries({ queryKey: keys.tasks });
       const snapshot = qc.getQueriesData({ queryKey: keys.tasks });
-      const optimistic: TaskDto = {
+      patchTaskInCaches(qc, {
         ...task,
-        status: task.status === 'done' ? 'todo' : 'done',
-        completedAt: task.status === 'done' ? null : new Date().toISOString(),
-      };
-      patchTaskInCaches(qc, optimistic);
+        status,
+        completedAt: status === 'done' ? new Date().toISOString() : null,
+      });
       return { snapshot };
     },
-    onError: (err, _task, ctx) => {
+    onError: (err, _v, ctx) => {
       ctx?.snapshot.forEach(([key, data]) => qc.setQueryData(key, data));
       if (err instanceof ApiError && err.code === 'conflict' && err.details)
         patchTaskInCaches(qc, err.details as TaskDto);
@@ -217,6 +287,15 @@ export function useToggleStatus() {
       if (task) void qc.invalidateQueries({ queryKey: keys.activity(task.id) });
     },
   });
+  return {
+    /** Busy only while actually sending (a change waiting offline doesn't block the button). */
+    isPending: m.isPending && !m.isPaused,
+    mutate: (
+      task: TaskDto,
+      opts?: Parameters<typeof m.mutate>[1],
+      status: TaskDto['status'] = task.status === 'done' ? 'todo' : 'done',
+    ) => m.mutate({ task, status }, opts),
+  };
 }
 
 export function useDeleteTask() {
@@ -422,15 +501,59 @@ function bumpCommentCount(qc: QueryClient, taskId: string, by: number) {
   updateLists(qc, (items) => items.map(fix));
 }
 
+/** Text replies go through the offline queue; voice replies need a connection (upload). */
 export function useAddComment(taskId: string) {
   const qc = useQueryClient();
+  return useMutation<unknown, Error, AddCommentVars>({
+    mutationKey: OFFLINE.addComment,
+    onMutate: async (v) => {
+      await qc.cancelQueries({ queryKey: keys.comments(taskId) });
+      const me = qc.getQueryData<MeDto>(keys.me);
+      const optimistic: CommentDto = {
+        id: v.id,
+        taskId,
+        author: me ? { id: me.id, name: me.name, avatarUrl: me.avatarUrl ?? null } : null,
+        body: v.body,
+        audio: null,
+        removed: false,
+        editedAt: null,
+        createdAt: new Date().toISOString(),
+        permissions: { edit: false, delete: false, report: false },
+      };
+      qc.setQueryData<InfiniteData<CommentListResponse>>(keys.comments(taskId), (old) => {
+        if (!old)
+          return { pages: [{ items: [optimistic], nextCursor: null }], pageParams: [undefined] };
+        const pages = [...old.pages];
+        const last = pages[pages.length - 1]!;
+        pages[pages.length - 1] = { ...last, items: [...last.items, optimistic] };
+        return { ...old, pages };
+      });
+      bumpCommentCount(qc, taskId, 1);
+    },
+    onError: () => {
+      bumpCommentCount(qc, taskId, -1);
+      void qc.invalidateQueries({ queryKey: keys.comments(taskId) });
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.comments(taskId) });
+      void qc.invalidateQueries({ queryKey: keys.activity(taskId) });
+    },
+  });
+}
+
+export function useAddVoiceComment(taskId: string) {
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: string) =>
-      post<CommentDto>(`/api/v1/tasks/${taskId}/comments`, { id: crypto.randomUUID(), body }),
+    mutationFn: async (rec: Recording) => {
+      const file = await uploadAudio(rec, 'comment_audio');
+      return post<CommentDto>(`/api/v1/tasks/${taskId}/comments`, {
+        id: crypto.randomUUID(),
+        audioFileId: file.id,
+      });
+    },
     onSuccess: () => {
       bumpCommentCount(qc, taskId, 1);
       void qc.invalidateQueries({ queryKey: keys.comments(taskId) });
-      void qc.invalidateQueries({ queryKey: keys.activity(taskId) });
     },
   });
 }
@@ -524,5 +647,172 @@ export function useSuspendUser() {
         suspend ? { reason } : {},
       ),
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.admin }),
+  });
+}
+
+/* ---------- Voice recordings ---------- */
+
+export interface Recording {
+  blob: Blob;
+  mimeType: string;
+  durationMs: number;
+}
+
+export async function uploadAudio(rec: Recording, kind: 'task_audio' | 'comment_audio') {
+  const form = new FormData();
+  form.append('kind', kind);
+  form.append('durationMs', String(Math.round(rec.durationMs)));
+  const ext = rec.mimeType.includes('mp4') ? 'm4a' : rec.mimeType.includes('ogg') ? 'ogg' : 'webm';
+  form.append('file', rec.blob, `recording.${ext}`);
+  return post<FileDto>('/api/v1/files', form);
+}
+
+/* ---------- Notifications ---------- */
+
+export function useNotifications() {
+  return useInfiniteQuery({
+    queryKey: keys.notifications,
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) =>
+      get<NotificationListResponse>(
+        `/api/v1/notifications?${toQueryString({ cursor: pageParam, limit: 30 })}`,
+      ),
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+  });
+}
+
+/** The bell's badge. Refreshed every minute and when the app comes back to the front. */
+export function useUnreadCount(enabled = true) {
+  return useQuery({
+    queryKey: keys.unread,
+    queryFn: () => get<{ count: number }>('/api/v1/notifications/unread-count'),
+    refetchInterval: 60_000,
+    enabled,
+  });
+}
+
+export function useMarkNotification() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string | 'all') =>
+      post<void>(
+        id === 'all' ? '/api/v1/notifications/read-all' : `/api/v1/notifications/${id}/read`,
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.notifications });
+      void qc.invalidateQueries({ queryKey: keys.unread });
+    },
+  });
+}
+
+export function useNotificationPrefs() {
+  return useQuery({
+    queryKey: keys.notificationPrefs,
+    queryFn: () => get<NotificationPreferencesDto>('/api/v1/me/notification-preferences'),
+  });
+}
+
+/** Switches one type/channel; the box changes at once and rolls back if saving fails. */
+export function useSetNotificationPref() {
+  const qc = useQueryClient();
+  const m = useMutation({
+    mutationFn: (p: NotificationPreferenceDto) =>
+      put<NotificationPreferencesDto>('/api/v1/me/notification-preferences', { preferences: [p] }),
+    onSuccess: (data) => qc.setQueryData(keys.notificationPrefs, data),
+  });
+  return {
+    mutate(p: NotificationPreferenceDto, opts?: { onError?: (err: Error) => void }) {
+      const prev = qc.getQueryData<NotificationPreferencesDto>(keys.notificationPrefs);
+      if (prev)
+        qc.setQueryData<NotificationPreferencesDto>(keys.notificationPrefs, {
+          ...prev,
+          preferences: prev.preferences.map((x) =>
+            x.type === p.type && x.channel === p.channel ? p : x,
+          ),
+        });
+      m.mutate(p, {
+        onError: (err) => {
+          if (prev) qc.setQueryData(keys.notificationPrefs, prev);
+          opts?.onError?.(err);
+        },
+      });
+    },
+  };
+}
+
+/* ---------- Simple mode ---------- */
+
+export function useSimpleHome() {
+  return useQuery({
+    queryKey: keys.simpleHome,
+    queryFn: () => get<SimpleHomeDto>('/api/v1/simple/home'),
+    refetchInterval: 60_000,
+  });
+}
+
+export function useSimplePerson(id: string) {
+  return useQuery({
+    queryKey: keys.simplePerson(id),
+    queryFn: () => get<SimpleConversationDto>(`/api/v1/simple/people/${id}`),
+  });
+}
+
+export function useMarkHeard() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (personId: string) => post<void>(`/api/v1/simple/people/${personId}/heard`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.simpleHome });
+      void qc.invalidateQueries({ queryKey: keys.unread });
+    },
+  });
+}
+
+/** Simple mode "Speak to <name>": a voice task given to them in a group you share. */
+export function useSendVoiceMessage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      rec,
+      to,
+      groupId,
+      title,
+    }: {
+      rec: Recording;
+      to: string;
+      groupId: string;
+      title: string;
+    }) => {
+      const file = await uploadAudio(rec, 'task_audio');
+      return post<TaskDto>('/api/v1/tasks', {
+        id: crypto.randomUUID(),
+        title,
+        groupId,
+        assigneeId: to,
+        audioFileId: file.id,
+      });
+    },
+    onSuccess: (_t, v) => {
+      void qc.invalidateQueries({ queryKey: keys.simplePerson(v.to) });
+      void qc.invalidateQueries({ queryKey: keys.simpleHome });
+      void qc.invalidateQueries({ queryKey: keys.tasks });
+    },
+  });
+}
+
+export function useSendVoiceReply() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ rec, taskId }: { rec: Recording; taskId: string; personId: string }) => {
+      const file = await uploadAudio(rec, 'comment_audio');
+      return post<CommentDto>(`/api/v1/tasks/${taskId}/comments`, {
+        id: crypto.randomUUID(),
+        audioFileId: file.id,
+      });
+    },
+    onSuccess: (_c, v) => {
+      void qc.invalidateQueries({ queryKey: keys.simplePerson(v.personId) });
+      void qc.invalidateQueries({ queryKey: keys.simpleHome });
+    },
   });
 }

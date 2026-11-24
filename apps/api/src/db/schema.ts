@@ -18,6 +18,8 @@ import {
   ACTIVITY_TYPES,
   GROUP_ROLES,
   INVITE_CHANNELS,
+  NOTIFICATION_CHANNELS,
+  NOTIFICATION_TYPES,
   REPORT_REASONS,
   REPORT_STATUSES,
   REPORT_TARGETS,
@@ -51,6 +53,8 @@ export const inviteChannelEnum = pgEnum('invite_channel', INVITE_CHANNELS);
 export const reportTargetEnum = pgEnum('report_target', REPORT_TARGETS);
 export const reportReasonEnum = pgEnum('report_reason', REPORT_REASONS);
 export const reportStatusEnum = pgEnum('report_status', REPORT_STATUSES);
+export const notificationTypeEnum = pgEnum('notification_type', NOTIFICATION_TYPES);
+export const notificationChannelEnum = pgEnum('notification_channel', NOTIFICATION_CHANNELS);
 
 export const users = pgTable(
   'users',
@@ -234,6 +238,9 @@ export const tasks = pgTable(
     source: taskSourceEnum('source').notNull().default('text'),
     audioFileId: uuid('audio_file_id').references(() => files.id, { onDelete: 'set null' }),
     transcript: text('transcript'),
+    /** Reminders already sent for the current due date (cleared when the due date changes). */
+    remindedDueSoonAt: ts('reminded_due_soon_at'),
+    remindedOverdueAt: ts('reminded_overdue_at'),
     version: integer('version').notNull().default(1),
     deletedAt: ts('deleted_at'),
     deletedBy: uuid('deleted_by').references(() => users.id, { onDelete: 'set null' }),
@@ -406,6 +413,63 @@ export const reports = pgTable(
   ],
 );
 
+export const notifications = pgTable(
+  'notifications',
+  {
+    id: uuid('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    type: notificationTypeEnum('type').notNull(),
+    taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'cascade' }),
+    actorId: uuid('actor_id').references(() => users.id, { onDelete: 'set null' }),
+    data: jsonb('data').$type<Record<string, unknown>>().notNull().default({}),
+    readAt: ts('read_at'),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('notifications_user_idx').on(t.userId, t.createdAt),
+    index('notifications_unread_idx')
+      .on(t.userId)
+      .where(sql`read_at IS NULL`),
+  ],
+);
+
+/** Only switched-off rows are stored: no row = on (the default for every type and channel). */
+export const notificationPreferences = pgTable(
+  'notification_preferences',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    type: notificationTypeEnum('type').notNull(),
+    channel: notificationChannelEnum('channel').notNull(),
+    enabled: boolean('enabled').notNull(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.type, t.channel] })],
+);
+
+export const pushSubscriptions = pgTable(
+  'push_subscriptions',
+  {
+    id: uuid('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    endpoint: text('endpoint').notNull(),
+    p256dh: varchar('p256dh', { length: 200 }).notNull(),
+    auth: varchar('auth', { length: 100 }).notNull(),
+    userAgent: varchar('user_agent', { length: 300 }),
+    createdAt: createdAt(),
+    lastUsedAt: ts('last_used_at'),
+  },
+  (t) => [
+    uniqueIndex('push_subscriptions_endpoint_unique').on(t.endpoint),
+    index('push_subscriptions_user_idx').on(t.userId),
+  ],
+);
+
 export const schema = {
   users,
   sessions,
@@ -422,4 +486,7 @@ export const schema = {
   groupInvites,
   comments,
   reports,
+  notifications,
+  notificationPreferences,
+  pushSubscriptions,
 };

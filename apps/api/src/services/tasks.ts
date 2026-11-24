@@ -28,7 +28,9 @@ import { AppError, notFound } from '../lib/errors';
 import { newId } from '../lib/ids';
 import type { AvatarUrl } from './avatars';
 import type { DailyLimits } from './daily-limits';
+import type { FileService } from './files';
 import { groupIdsOf, type Viewer } from './membership';
+import type { NotificationService } from './notifications';
 
 type TaskRow = typeof tasks.$inferSelect;
 type ActivityInsert = typeof taskActivity.$inferInsert;
@@ -99,7 +101,12 @@ export const taskFacts = (t: Pick<TaskRow, 'createdBy' | 'assigneeId' | 'groupId
   groupId: t.groupId,
 });
 
-export function createTaskService(db: Db, avatarUrl: AvatarUrl, limits: DailyLimits) {
+export function createTaskService(
+  db: Db,
+  avatarUrl: AvatarUrl,
+  limits: DailyLimits,
+  extra: { files: FileService; notify: NotificationService['notify'] },
+) {
   const selectJoined = () =>
     db
       .select({
@@ -151,6 +158,7 @@ export function createTaskService(db: Db, avatarUrl: AvatarUrl, limits: DailyLim
           }
         : null,
       commentCount: row.commentCount ?? 0,
+      audio: await extra.files.audioDto(t.audioFileId),
       completedAt: t.completedAt?.toISOString() ?? null,
       version: t.version,
       createdAt: t.createdAt.toISOString(),
@@ -352,6 +360,8 @@ export function createTaskService(db: Db, avatarUrl: AvatarUrl, limits: DailyLim
         assigneeId = input.assigneeId ?? null;
         if (assigneeId) await assertMember(db, groupId, assigneeId);
       }
+      if (input.audioFileId)
+        await extra.files.claimable(viewer.id, input.audioFileId, 'task_audio');
       await limits.consume('tasks', viewer.id);
 
       const dueAt = input.dueAt ? new Date(input.dueAt) : null;
@@ -368,7 +378,8 @@ export function createTaskService(db: Db, avatarUrl: AvatarUrl, limits: DailyLim
           createdBy: viewer.id,
           assigneeId,
           groupId,
-          source: 'text',
+          source: input.audioFileId ? 'voice' : 'text',
+          audioFileId: input.audioFileId ?? null,
         });
         const activity: ActivityInsert[] = [
           { id: newId(), taskId: id, actorId: viewer.id, type: 'created', ipHash },
@@ -384,6 +395,14 @@ export function createTaskService(db: Db, avatarUrl: AvatarUrl, limits: DailyLim
           });
         await tx.insert(taskActivity).values(activity);
       });
+      if (groupId && assigneeId)
+        await extra.notify({
+          type: 'task_assigned',
+          taskId: id,
+          taskTitle: input.title,
+          actorId: viewer.id,
+          recipients: [assigneeId],
+        });
       return { task: await this.get(viewer, id), created: true };
     },
 
@@ -461,6 +480,9 @@ export function createTaskService(db: Db, avatarUrl: AvatarUrl, limits: DailyLim
         if (nextDue?.getTime() !== current.dueAt?.getTime() || nextHasTime !== current.dueHasTime) {
           patch.dueAt = nextDue;
           patch.dueHasTime = nextHasTime;
+          // A new due date gets its own reminders.
+          patch.remindedDueSoonAt = null;
+          patch.remindedOverdueAt = null;
           log(
             'due_changed',
             current.dueAt ? { at: current.dueAt.toISOString(), hasTime: current.dueHasTime } : null,
@@ -512,6 +534,24 @@ export function createTaskService(db: Db, avatarUrl: AvatarUrl, limits: DailyLim
         throw new AppError('conflict', 'This task was changed elsewhere', {
           details: await this.get(viewer, id),
         });
+      const title = patch.title ?? current.title;
+      if (targetGroup && patch.assigneeId)
+        await extra.notify({
+          type: 'task_assigned',
+          taskId: id,
+          taskTitle: title,
+          actorId: viewer.id,
+          recipients: [patch.assigneeId],
+        });
+      if (patch.status)
+        await extra.notify({
+          type: 'status_changed',
+          taskId: id,
+          taskTitle: title,
+          actorId: viewer.id,
+          recipients: [current.createdBy, nextAssignee],
+          data: { status: patch.status },
+        });
       return this.get(viewer, id);
     },
 
@@ -529,6 +569,7 @@ export function createTaskService(db: Db, avatarUrl: AvatarUrl, limits: DailyLim
           .insert(taskActivity)
           .values({ id: newId(), taskId: id, actorId: viewer.id, type: 'deleted', ipHash });
       });
+      await extra.files.hide(task.audioFileId);
     },
 
     async activity(viewer: Viewer, id: string): Promise<ActivityDto[]> {

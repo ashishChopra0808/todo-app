@@ -1,7 +1,8 @@
 import { Link, Outlet, useNavigate, useRouterState, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useGroups, useMe, useTaskCounts } from '../api/queries';
+import { useOnline, usePendingSync } from '../api/offline';
+import { useGroups, useMe, useTaskCounts, useUnreadCount } from '../api/queries';
 import { takePendingJoin } from '../lib/pending-join';
 import { applyLocale } from '../lib/i18n';
 import { applyTheme } from '../lib/theme';
@@ -14,8 +15,9 @@ function NavLinks() {
   const { t } = useTranslation();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const counts = useTaskCounts();
+  const unread = useUnreadCount();
   const items: Array<{
-    to: '/today' | '/tasks' | '/groups' | '/settings';
+    to: '/today' | '/tasks' | '/groups' | '/inbox' | '/settings';
     label: string;
     icon: IconName;
     badge?: number;
@@ -23,6 +25,7 @@ function NavLinks() {
     { to: '/today', label: t('nav.today'), icon: 'sun', badge: counts.data?.overdue || undefined },
     { to: '/tasks', label: t('nav.tasks'), icon: 'list' },
     { to: '/groups', label: t('nav.groups'), icon: 'users' },
+    { to: '/inbox', label: t('nav.inbox'), icon: 'bell', badge: unread.data?.count || undefined },
     { to: '/settings', label: t('nav.settings'), icon: 'settings' },
   ];
   return (
@@ -63,6 +66,7 @@ function SidebarNav() {
   const counts = useTaskCounts().data;
   const tab = path === '/tasks' ? (search.tab ?? 'mine') : null;
   const groups = useGroups();
+  const unread = useUnreadCount();
   const [creating, setCreating] = useState(false);
   const views: Array<{
     key: string;
@@ -133,6 +137,16 @@ function SidebarNav() {
             </Link>
           </li>
         ))}
+        <li>
+          <Link
+            to="/inbox"
+            className="nav-link"
+            aria-current={path === '/inbox' ? 'page' : undefined}
+          >
+            <span>{t('nav.inbox')}</span>
+            {!!unread.data?.count && <span className="sidebar__count">{unread.data.count}</span>}
+          </Link>
+        </li>
       </ul>
       <div className="sidebar__groups">
         <h2 className="sidebar__heading" id="sidebar-groups">
@@ -210,6 +224,30 @@ export function AppShell() {
     applyLocale(me.data.locale);
   }, [me.data]);
 
+  // Simple mode replaces the whole app (Settings stays reachable, to switch it off).
+  const simple = path.startsWith('/simple');
+  useEffect(() => {
+    if (me.data?.simpleMode && !simple && !path.startsWith('/settings'))
+      void navigate({ to: '/simple', replace: true });
+  }, [me.data?.simpleMode, simple, path, navigate]);
+
+  const pending = usePendingSync();
+  const online = useOnline();
+  const banner = !online ? (
+    <p className="offline-banner" role="status">
+      <Icon name="wifiOff" size={18} />
+      {pending.count ? t('offline.bannerPending', { count: pending.count }) : t('offline.banner')}
+    </p>
+  ) : null;
+
+  if (simple)
+    return (
+      <>
+        {banner}
+        <Outlet />
+      </>
+    );
+
   const showFab = path === '/today' || path === '/tasks';
   return (
     <div className="shell">
@@ -230,10 +268,18 @@ export function AppShell() {
         <SidebarNav />
       </nav>
       <div>
+        {banner}
         <Outlet />
       </div>
       {showFab && (
         <div className="fab-row">
+          <Link
+            to="/tasks/voice"
+            className="btn btn--secondary btn--fab"
+            aria-label={t('voice.title')}
+          >
+            <Icon name="mic" />
+          </Link>
           <Link to="/tasks/new" className="btn btn--primary btn--fab">
             <Icon name="plus" />
             {t('nav.newTask')}
