@@ -68,7 +68,10 @@ export default defineConfig({
     headers: productionHeaders(),
     proxy: { '/api': { target: API, changeOrigin: false, xfwd: true } },
   },
-  build: { sourcemap: true, target: 'es2022' },
+  // iPhones run every browser (Chrome too) on Safari's engine, and many are on iOS 14–16.3.
+  // 'es2022' left class static blocks in the sign-in code, which those phones can't parse,
+  // so Log in / Create account did nothing there. Newer APIs are polyfilled in lib/polyfills.ts.
+  build: { sourcemap: true, target: ['es2020', 'safari14', 'chrome90', 'firefox90', 'edge90'] },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.ts'],

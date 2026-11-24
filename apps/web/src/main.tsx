@@ -1,3 +1,4 @@
+import './lib/polyfills';
 import '@fontsource-variable/inter';
 import '@fontsource/noto-sans-devanagari/devanagari-400.css';
 import '@fontsource/noto-sans-devanagari/devanagari-600.css';
