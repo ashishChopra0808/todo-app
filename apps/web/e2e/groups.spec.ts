@@ -138,7 +138,36 @@ test('group → invite by link → second person joins → assign → done + com
     .getByRole('link', { name: /Sharma family/ })
     .first()
     .click();
-  await asha.getByRole('link', { name: 'Group settings' }).click();
+  const settingsLink = asha.getByRole('link', { name: 'Group settings' });
+  await expect(settingsLink).toBeVisible();
+  console.log(
+    'DIAG',
+    JSON.stringify(
+      await asha.evaluate(() => {
+        const a = document.querySelector('a[aria-label="Group settings"]')!;
+        const r = a.getBoundingClientRect();
+        const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+        const wide = [...document.querySelectorAll('body *')]
+          .filter((e) => e.getBoundingClientRect().right > document.documentElement.clientWidth + 1)
+          .slice(0, 8)
+          .map((e) => `${e.tagName}.${e.className}:${Math.round(e.getBoundingClientRect().right)}`);
+        return {
+          url: location.href,
+          vw: innerWidth,
+          vh: innerHeight,
+          cw: document.documentElement.clientWidth,
+          sw: document.documentElement.scrollWidth,
+          sx: scrollX,
+          sy: scrollY,
+          vv: [visualViewport?.width, visualViewport?.scale, visualViewport?.offsetLeft],
+          link: [r.x, r.y, r.width, r.height],
+          hit: hit ? `${hit.tagName}.${hit.className}` : null,
+          wide,
+        };
+      }),
+    ),
+  );
+  await settingsLink.click({ timeout: 10_000 });
   await expect(asha.getByText('Ravi Kumar', { exact: true })).toBeVisible();
   await expectAccessible(asha);
   await asha.getByRole('button', { name: 'Make admin: Ravi Kumar' }).click();
