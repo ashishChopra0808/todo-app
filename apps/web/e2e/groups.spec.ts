@@ -140,7 +140,7 @@ test('group → invite by link → second person joins → assign → done + com
     .click();
   const settingsLink = asha.getByRole('link', { name: 'Group settings' });
   await expect(settingsLink).toBeVisible();
-  console.log(
+  console.warn(
     'DIAG',
     JSON.stringify(
       await asha.evaluate(() => {
