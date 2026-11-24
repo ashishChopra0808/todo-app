@@ -10,6 +10,7 @@ import { keys, useMe, useSessions, useUpdateProfile } from '../api/queries';
 import { Avatar } from '../components/Avatar';
 import { Dialog } from '../components/Dialog';
 import { FormError, PasswordField, Segmented, TextField } from '../components/Field';
+import { StagingSmsNote } from '../components/StagingSmsNote';
 import { Icon } from '../components/Icon';
 import { LanguageSelect } from '../components/LanguageSelect';
 import { OtpField } from '../components/OtpField';
@@ -263,6 +264,7 @@ function ContactDialog({
             {kind === 'email'
               ? t('auth.otp.sentToEmail', { target })
               : t('auth.otp.sentToPhone', { target })}
+            {kind === 'phone' && <StagingSmsNote kind="code" />}
           </p>
           <OtpField
             value={code}

@@ -4,6 +4,7 @@ import {
   createRootRouteWithContext,
   createRoute,
   createRouter,
+  useRouterState,
   lazyRouteComponent,
   redirect,
 } from '@tanstack/react-router';
@@ -60,9 +61,16 @@ interface Ctx {
 const str = (v: unknown) => (typeof v === 'string' && v.length <= 300 ? v : undefined);
 const channel = (v: unknown) => (v === 'phone' ? 'phone' : 'email') as 'email' | 'phone';
 
+/** Shows a bar while the next page waits on the server (e.g. a slow sign-in check). */
+function RouteProgress() {
+  const loading = useRouterState({ select: (s) => s.status === 'pending' });
+  return loading ? <div className="route-progress" aria-hidden="true" /> : null;
+}
+
 const rootRoute = createRootRouteWithContext<Ctx>()({
   component: () => (
     <>
+      <RouteProgress />
       <Outlet />
       <UpdatePrompt />
     </>
