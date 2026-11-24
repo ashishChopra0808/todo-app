@@ -11,9 +11,13 @@ import {
   useToggleStatus,
   useUpdateTask,
 } from '../api/queries';
+import { Comments } from '../components/Comments';
 import { Dialog } from '../components/Dialog';
 import { Segmented } from '../components/Field';
+import { GroupIcon, MiniAvatar } from '../components/GroupBits';
 import { Icon } from '../components/Icon';
+import { MoreMenu } from '../components/MoreMenu';
+import { ReportDialog } from '../components/ReportDialog';
 import { ErrorState, LoadingList, Spinner } from '../components/States';
 import { PriorityDot, StatusPill } from '../components/TaskBits';
 import { useToast } from '../components/Toasts';
@@ -38,6 +42,28 @@ function activityText(a: ActivityDto, meId: string, t: ReturnType<typeof useTran
       return a.to
         ? t('task.activity.due_changed', { name })
         : t('task.activity.due_removed', { name });
+    case 'assigned': {
+      const to = a.to as { id: string; name: string } | null;
+      return t('task.activity.assigned', {
+        name,
+        to: to ? (to.id === meId ? t('task.activity.youLower') : to.name) : '',
+      });
+    }
+    case 'unassigned': {
+      const from = a.from as { id: string; name: string } | null;
+      return from
+        ? t('task.activity.unassignedFrom', {
+            name,
+            from: from.id === meId ? t('task.activity.youLower') : from.name,
+          })
+        : t('task.activity.unassigned', { name });
+    }
+    case 'moved': {
+      const to = a.to as { name: string } | null;
+      return to
+        ? t('task.activity.moved', { name, to: to.name })
+        : t('task.activity.movedPersonal', { name });
+    }
     default:
       return t(`task.activity.${a.type}`, { name });
   }
@@ -61,14 +87,16 @@ function Activity({ task, meId, tz }: { task: TaskDto; meId: string; tz: string 
         />
       ) : (
         <ol className="activity">
-          {activity.data.map((a) => (
-            <li key={a.id}>
-              <span>{activityText(a, meId, t)}</span>
-              <time className="meta" dateTime={a.createdAt}>
-                {formatDateTime(a.createdAt, tz, intlLocale())}
-              </time>
-            </li>
-          ))}
+          {activity.data
+            .filter((a) => a.type !== 'commented') // the thread above already shows comments
+            .map((a) => (
+              <li key={a.id}>
+                <span>{activityText(a, meId, t)}</span>
+                <time className="meta" dateTime={a.createdAt}>
+                  {formatDateTime(a.createdAt, tz, intlLocale())}
+                </time>
+              </li>
+            ))}
         </ol>
       )}
     </section>
@@ -94,6 +122,7 @@ export function TaskDetail({ id, variant, onClose, onDeleted }: DetailProps) {
   const update = useUpdateTask();
   const remove = useDeleteTask();
   const [confirm, setConfirm] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const [localStatus, setLocalStatus] = useState<{ status: TaskStatus; version: number }>({
     status: 'todo',
     version: -1,
@@ -138,8 +167,32 @@ export function TaskDetail({ id, variant, onClose, onDeleted }: DetailProps) {
     <>
       <header className="stack">
         <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'nowrap' }}>
-          <span className="meta">{t('task.personal')}</span>
-          {close}
+          {data.group ? (
+            <Link to="/groups/$id" params={{ id: data.group.id }} className="meta task-group-link">
+              <GroupIcon group={data.group} size="sm" />
+              {data.group.name}
+            </Link>
+          ) : (
+            <span className="meta">{t('task.personal')}</span>
+          )}
+          <span className="row" style={{ flexWrap: 'nowrap', gap: 4 }}>
+            <MoreMenu
+              label={t('task.more')}
+              actions={
+                data.permissions.report
+                  ? [
+                      {
+                        id: 'report',
+                        label: t('task.report'),
+                        icon: 'flag',
+                        onAction: () => setReporting(true),
+                      },
+                    ]
+                  : []
+              }
+            />
+            {close}
+          </span>
         </div>
         <Heading
           ref={headingRef}
@@ -217,11 +270,20 @@ export function TaskDetail({ id, variant, onClose, onDeleted }: DetailProps) {
             <PriorityDot priority={data.priority} />
           </dd>
         </div>
-        {isPanel && (
+        {(isPanel || data.group) && (
           <>
             <div>
               <dt>{t('task.fields.assignee')}</dt>
-              <dd>{nameOf(data.assignee)}</dd>
+              <dd>
+                {data.assignee ? (
+                  <>
+                    <MiniAvatar person={data.assignee} size={22} />
+                    {nameOf(data.assignee)}
+                  </>
+                ) : (
+                  t('task.unassigned')
+                )}
+              </dd>
             </div>
             <div>
               <dt>{t('task.fields.createdBy')}</dt>
@@ -261,7 +323,13 @@ export function TaskDetail({ id, variant, onClose, onDeleted }: DetailProps) {
         </div>
       )}
 
+      <Comments task={data} meId={meId} tz={tz} />
       <Activity task={data} meId={meId} tz={tz} />
+      <ReportDialog
+        open={reporting}
+        onClose={() => setReporting(false)}
+        target={{ type: 'task', id: data.id }}
+      />
       <p className="meta">
         {t('task.detail.createdAt', { date: formatDateTime(data.createdAt, tz, intlLocale()) })}
       </p>

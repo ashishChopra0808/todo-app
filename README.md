@@ -3,8 +3,9 @@
 Shared tasks for families, offices and roommates — a responsive web app and installable PWA.
 English and Hindi, light and dark themes, WCAG 2.2 AA.
 
-**Status:** Phase 1 (auth, profile, personal tasks). Plan and decisions live in the claude.ai project
-docs: `phase-1-spec.md`, `tech-stack.md`, `design-direction.md`, `kickoff-checklist.md`.
+**Status:** Phase 2 (groups, invites, assignment, comments, reports) on top of Phase 1 (auth, profile,
+personal tasks). Plan and decisions live in the claude.ai project docs: `phase-1-spec.md`,
+`phase-2-spec.md`, `tech-stack.md`, `design-direction.md`, `kickoff-checklist.md`.
 
 ## Repository layout
 
@@ -29,7 +30,7 @@ pnpm install
 cp .env.example .env            # then replace the three "change-me" secrets
 docker compose up -d postgres redis
 pnpm db:migrate
-pnpm db:seed                    # optional: demo@todo.test / mango-river-lamp-91
+pnpm db:seed                    # optional: demo@todo.test and demo2@todo.test / mango-river-lamp-91
 pnpm dev                        # API on :3000, web on http://localhost:5173
 ```
 
@@ -80,8 +81,17 @@ required setting is missing or unsafe (for example the log email driver, or an `
   5 tries, 60 s resend cooldown, 5 per hour), password reset by email or SMS, Argon2id hashing,
   lockout after 10 failures, rate limits in Redis, HttpOnly SameSite cookies, audit log.
   Only verified users get a session. Phone sign-up creates the account only after the OTP is verified.
-- **Authorisation** — every `/api/v1` route checks the session and verification status, then
-  applies the rules in `packages/shared/src/rules.ts`. Other users' tasks return 404.
+- **Authorisation** — every `/api/v1` route checks the session and verification status, loads the
+  user's group roles once, then applies the rules in `packages/shared/src/rules.ts`. Anything outside
+  your personal tasks and your groups (tasks, comments, members, invites) returns 404.
+- **Groups** — Admin and Member roles; a group always keeps one admin. Invites by link/code (7 days,
+  20 uses), email or SMS (single use, only for that verified address — stored as a keyed hash, not the
+  address). Up to 50 members per group and 50 groups per person. Removing a member (or leaving)
+  unassigns their open tasks there. Deleting a group hides it at once and purges it after 180 days.
+- **Safety** — a Report option on tasks, comments, members and groups. The owner review page `/admin`
+  is only for verified accounts listed in `OWNER_EMAILS` (everyone else gets 404). Removing keeps the
+  content hidden for 180 days as evidence; suspending signs the person out everywhere and hides their
+  content. Daily limits per person (Redis): 20 invites (10 by SMS), 200 tasks, 300 comments, 20 reports.
 - **Security** — strict CSP and security headers (web: `apps/web/public/_headers`; API: Helmet),
   same-origin check on every state-changing request, input validation with Zod, uploads re-encoded,
   files served through signed, expiring URLs. Logs are JSON with a request ID and never contain

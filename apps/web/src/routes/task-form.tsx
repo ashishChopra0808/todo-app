@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams } from '@tanstack/react-router';
+import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -11,8 +11,16 @@ import {
   type TaskStatus,
 } from '@todo/shared';
 import { ApiError } from '../api/client';
-import { useCreateTask, useMe, useTask, useUpdateTask } from '../api/queries';
+import {
+  useCreateTask,
+  useGroups,
+  useMe,
+  useMembers,
+  useTask,
+  useUpdateTask,
+} from '../api/queries';
 import { FormError, Segmented } from '../components/Field';
+import { GroupIcon, MiniAvatar } from '../components/GroupBits';
 import { Icon } from '../components/Icon';
 import { ErrorState, LoadingList, Spinner } from '../components/States';
 import { useToast } from '../components/Toasts';
@@ -35,9 +43,128 @@ function initialWhen(date: string | null, today: string): When {
   return 'pick';
 }
 
-function TaskForm({ task, onDone }: { task?: TaskDto; onDone: (t: TaskDto) => void }) {
+/** "Where & who": Personal or a group, then who in that group does it. */
+function WhereAndWho({
+  groupId,
+  assigneeId,
+  onGroup,
+  onAssignee,
+  canMove,
+  canAssign,
+  meId,
+}: {
+  groupId: string | null;
+  assigneeId: string | null;
+  onGroup: (id: string | null) => void;
+  onAssignee: (id: string | null) => void;
+  canMove: boolean;
+  canAssign: boolean;
+  meId: string;
+}) {
+  const { t } = useTranslation();
+  const groups = useGroups();
+  const members = useMembers(groupId);
+  if (!groups.data?.length && !groupId) return null;
+  const others = (members.data ?? []).filter((m) => m.id !== meId);
+  return (
+    <fieldset className="fieldset">
+      <legend className="section-title">{t('task.where')}</legend>
+      {canMove && (
+        <fieldset className="fieldset">
+          <legend className="field__label">{t('task.fields.group')}</legend>
+          <div className="chips">
+            <label className="chip">
+              <input
+                type="radio"
+                name="task-group"
+                checked={groupId === null}
+                onChange={() => onGroup(null)}
+              />
+              <span>{t('task.personal')}</span>
+            </label>
+            {groups.data?.map((g) => (
+              <label key={g.id} className="chip">
+                <input
+                  type="radio"
+                  name="task-group"
+                  checked={groupId === g.id}
+                  onChange={() => onGroup(g.id)}
+                />
+                <span>
+                  <GroupIcon group={g} size="sm" />
+                  {g.name}
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
+      {groupId && canAssign && (
+        <fieldset className="fieldset">
+          <legend className="field__label">{t('task.fields.assignTo')}</legend>
+          {members.isPending ? (
+            <LoadingList rows={1} />
+          ) : (
+            <div className="chips">
+              <label className="chip">
+                <input
+                  type="radio"
+                  name="task-assignee"
+                  checked={assigneeId === meId}
+                  onChange={() => onAssignee(meId)}
+                />
+                <span>{t('task.me')}</span>
+              </label>
+              {others.map((m) => (
+                <label key={m.id} className="chip">
+                  <input
+                    type="radio"
+                    name="task-assignee"
+                    checked={assigneeId === m.id}
+                    onChange={() => onAssignee(m.id)}
+                  />
+                  <span>
+                    <MiniAvatar person={m} size={22} />
+                    {m.name}
+                  </span>
+                </label>
+              ))}
+              <label className="chip">
+                <input
+                  type="radio"
+                  name="task-assignee"
+                  checked={assigneeId === null}
+                  onChange={() => onAssignee(null)}
+                />
+                <span>{t('task.unassigned')}</span>
+              </label>
+            </div>
+          )}
+        </fieldset>
+      )}
+    </fieldset>
+  );
+}
+
+function TaskForm({
+  task,
+  initialGroup,
+  onDone,
+}: {
+  task?: TaskDto;
+  initialGroup?: string | null;
+  onDone: (t: TaskDto) => void;
+}) {
   const { t } = useTranslation();
   const me = useMe();
+  const meId = me.data?.id ?? '';
+  const [groupId, setGroupId] = useState<string | null>(
+    task ? task.groupId : (initialGroup ?? null),
+  );
+  // New group tasks default to "Me"; the creator picks someone else with one tap.
+  const [assigneeId, setAssigneeId] = useState<string | null>(
+    task ? (task.assignee?.id ?? null) : meId || null,
+  );
   const tz = me.data?.timeZone ?? 'Asia/Kolkata';
   const today = localDate(tz);
   const initial = task?.dueAt
@@ -85,10 +212,18 @@ function TaskForm({ task, onDone }: { task?: TaskDto; onDone: (t: TaskDto) => vo
       priority,
       status,
     };
+    const where = task
+      ? {
+          ...(groupId !== task.groupId ? { groupId } : {}),
+          ...(groupId && assigneeId !== (task.assignee?.id ?? null) ? { assigneeId } : {}),
+        }
+      : groupId
+        ? { groupId, assigneeId }
+        : {};
     try {
       const saved = task
-        ? await update.mutateAsync({ id: task.id, version: task.version, ...body })
-        : await create.mutateAsync(body);
+        ? await update.mutateAsync({ id: task.id, version: task.version, ...body, ...where })
+        : await create.mutateAsync({ ...body, ...where });
       onDone(saved);
     } catch (err) {
       setFields(fieldErrors(err, t));
@@ -241,6 +376,26 @@ function TaskForm({ task, onDone }: { task?: TaskDto; onDone: (t: TaskDto) => vo
         />
       )}
 
+      <WhereAndWho
+        groupId={groupId}
+        assigneeId={assigneeId}
+        meId={meId}
+        canMove={!task || task.permissions.move}
+        canAssign={!task || task.permissions.assign || groupId !== task.groupId}
+        onGroup={(g) => {
+          setGroupId(g);
+          // Assignees belong to one group: start again with "Me" when the group changes.
+          setAssigneeId(g ? meId : null);
+        }}
+        onAssignee={setAssigneeId}
+      />
+      {fields.assigneeId && (
+        <p className="field__error">
+          <Icon name="alert" size={16} />
+          {fields.assigneeId}
+        </p>
+      )}
+
       <FormError message={error} />
       <div className="sticky-actions">
         <button type="submit" className="btn btn--primary btn--block" disabled={busy}>
@@ -274,12 +429,14 @@ export function NewTaskPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const toast = useToast();
+  const search = useSearch({ strict: false }) as { group?: string };
   const back = () =>
     window.history.length > 1 ? window.history.back() : void navigate({ to: '/today' });
   return (
     <main id="main" className="page" style={{ paddingBlockEnd: 32 }}>
       <FormHeader title={t('task.new')} cancelTo={back} />
       <TaskForm
+        initialGroup={search.group ?? null}
         onDone={() => {
           toast(t('task.created'));
           back();

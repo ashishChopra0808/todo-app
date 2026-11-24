@@ -2,14 +2,106 @@ import { eq } from 'drizzle-orm';
 import { hashPassword } from '../auth/password-hash';
 import { newId } from '../lib/ids';
 import { createDb } from './client';
-import { accounts, consents, taskActivity, tasks, users } from './schema';
+import {
+  accounts,
+  comments,
+  consents,
+  groupMembers,
+  groups,
+  taskActivity,
+  tasks,
+  users,
+} from './schema';
 
 /**
  * Demo data for local development and staging (never production).
- * Sign in with demo@todo.test / mango-river-lamp-91
+ * Sign in with demo@todo.test / mango-river-lamp-91 (Priya, admin of "Sharma family")
+ * or demo2@todo.test / mango-river-lamp-91 (Ravi, a member) to try groups with two people.
  */
 const EMAIL = 'demo@todo.test';
+const EMAIL2 = 'demo2@todo.test';
 const PASSWORD = 'mango-river-lamp-91';
+
+type Db = ReturnType<typeof createDb>['db'];
+
+async function ensureUser(db: Db, email: string, name: string): Promise<string> {
+  const existing = await db.query.users.findFirst({ where: eq(users.email, email) });
+  if (existing) return existing.id;
+  const id = newId();
+  await db.insert(users).values({
+    id,
+    name,
+    email,
+    emailVerified: true,
+    locale: 'en',
+    timeZone: 'Asia/Kolkata',
+  });
+  await db.insert(accounts).values({
+    id: newId(),
+    userId: id,
+    providerId: 'credential',
+    accountId: id,
+    password: await hashPassword(PASSWORD),
+  });
+  await db.insert(consents).values([
+    { id: newId(), userId: id, kind: 'terms', version: 'seed' },
+    { id: newId(), userId: id, kind: 'privacy', version: 'seed' },
+  ]);
+  return id;
+}
+
+/** Phase 2: a family group with Priya (admin) and Ravi, shared tasks and a comment. */
+async function seedGroup(db: Db, priya: string) {
+  const already = await db.query.groupMembers.findFirst({ where: eq(groupMembers.userId, priya) });
+  if (already) return false;
+  const ravi = await ensureUser(db, EMAIL2, 'Ravi Kumar');
+  const groupId = newId();
+  await db
+    .insert(groups)
+    .values({ id: groupId, name: 'Sharma family', icon: '🏠', createdBy: priya });
+  await db.insert(groupMembers).values([
+    { groupId, userId: priya, role: 'admin' },
+    { groupId, userId: ravi, role: 'member' },
+  ]);
+  const shared = [
+    { title: 'Buy diyas and rangoli colours', by: priya, to: ravi, priority: 'high' as const },
+    { title: 'Fix the bathroom tap', by: ravi, to: priya, priority: 'medium' as const },
+    { title: 'Pick up the dry cleaning', by: priya, to: null, priority: 'low' as const },
+  ];
+  for (const t of shared) {
+    const id = newId();
+    await db.insert(tasks).values({
+      id,
+      title: t.title,
+      priority: t.priority,
+      createdBy: t.by,
+      assigneeId: t.to,
+      groupId,
+    });
+    await db.insert(taskActivity).values([
+      { id: newId(), taskId: id, actorId: t.by, type: 'created' },
+      ...(t.to
+        ? [
+            {
+              id: newId(),
+              taskId: id,
+              actorId: t.by,
+              type: 'assigned' as const,
+              toValue: { id: t.to, name: t.to === ravi ? 'Ravi Kumar' : 'Priya Sharma' },
+            },
+          ]
+        : []),
+    ]);
+    if (t.to === ravi)
+      await db.insert(comments).values({
+        id: newId(),
+        taskId: id,
+        authorId: ravi,
+        body: 'Will get them on Saturday from the market.',
+      });
+  }
+  return true;
+}
 
 async function main() {
   if (process.env.APP_ENV === 'production') throw new Error('refusing to seed production');
@@ -19,29 +111,15 @@ async function main() {
   try {
     const existing = await db.query.users.findFirst({ where: eq(users.email, EMAIL) });
     if (existing) {
-      console.warn('demo user already exists');
+      const added = await seedGroup(db, existing.id);
+      console.warn(
+        added
+          ? `demo user exists; added the demo group with ${EMAIL2}`
+          : 'demo data already exists',
+      );
       return;
     }
-    const userId = newId();
-    await db.insert(users).values({
-      id: userId,
-      name: 'Priya Sharma',
-      email: EMAIL,
-      emailVerified: true,
-      locale: 'en',
-      timeZone: 'Asia/Kolkata',
-    });
-    await db.insert(accounts).values({
-      id: newId(),
-      userId,
-      providerId: 'credential',
-      accountId: userId,
-      password: await hashPassword(PASSWORD),
-    });
-    await db.insert(consents).values([
-      { id: newId(), userId, kind: 'terms', version: 'seed' },
-      { id: newId(), userId, kind: 'privacy', version: 'seed' },
-    ]);
+    const userId = await ensureUser(db, EMAIL, 'Priya Sharma');
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
     const day = (offset: number) => {
       const d = new Date(`${today}T00:00:00.000Z`);
@@ -110,7 +188,10 @@ async function main() {
         .insert(taskActivity)
         .values({ id: newId(), taskId: id, actorId: userId, type: 'created' });
     }
-    console.warn(`seeded ${EMAIL} / ${PASSWORD} with ${sample.length} tasks`);
+    await seedGroup(db, userId);
+    console.warn(
+      `seeded ${EMAIL} and ${EMAIL2} (password ${PASSWORD}) with ${sample.length} personal tasks and a group`,
+    );
   } finally {
     await pool.end();
   }

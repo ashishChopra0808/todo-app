@@ -22,7 +22,17 @@ export type AuditAction =
   | 'user_suspend'
   | 'user_unsuspend'
   | 'content_remove'
-  | 'legal_data_access';
+  | 'legal_data_access'
+  | 'group_create'
+  | 'group_delete'
+  | 'role_change'
+  | 'member_remove'
+  | 'member_leave'
+  | 'member_join'
+  | 'invite_create'
+  | 'invite_revoke'
+  | 'report_create'
+  | 'report_dismiss';
 
 export interface AuditContext {
   ip?: string | null;

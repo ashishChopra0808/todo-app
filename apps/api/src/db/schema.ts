@@ -6,6 +6,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -13,11 +14,20 @@ import {
   varchar,
 } from 'drizzle-orm/pg-core';
 
+import {
+  ACTIVITY_TYPES,
+  GROUP_ROLES,
+  INVITE_CHANNELS,
+  REPORT_REASONS,
+  REPORT_STATUSES,
+  REPORT_TARGETS,
+} from '@todo/shared';
+
 /*
- * Phase 1 tables. Better Auth owns users/sessions/accounts/verifications; property
- * names on those tables must match Better Auth's field names (camelCase), while
- * the SQL column names are snake_case.
- * Phase 2/3 tables (groups, comments, reports, notifications) arrive in later migrations.
+ * Better Auth owns users/sessions/accounts/verifications; property names on those tables
+ * must match Better Auth's field names (camelCase), while the SQL column names are snake_case.
+ * Phase 1: users, tasks, activity. Phase 2: groups, members, invites, comments, reports.
+ * Phase 3 (notifications) arrives in a later migration.
  */
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'date' });
@@ -35,19 +45,12 @@ export const taskSourceEnum = pgEnum('task_source', ['text', 'voice']);
 export const fileKindEnum = pgEnum('file_kind', ['avatar', 'task_audio', 'comment_audio']);
 export const fileStatusEnum = pgEnum('file_status', ['pending', 'ready', 'failed']);
 export const consentKindEnum = pgEnum('consent_kind', ['terms', 'privacy']);
-export const activityTypeEnum = pgEnum('activity_type', [
-  'created',
-  'title_changed',
-  'description_changed',
-  'due_changed',
-  'priority_changed',
-  'status_changed',
-  'assigned',
-  'unassigned',
-  'deleted',
-  'restored',
-  'removed',
-]);
+export const activityTypeEnum = pgEnum('activity_type', ACTIVITY_TYPES);
+export const groupRoleEnum = pgEnum('group_role', GROUP_ROLES);
+export const inviteChannelEnum = pgEnum('invite_channel', INVITE_CHANNELS);
+export const reportTargetEnum = pgEnum('report_target', REPORT_TARGETS);
+export const reportReasonEnum = pgEnum('report_reason', REPORT_REASONS);
+export const reportStatusEnum = pgEnum('report_status', REPORT_STATUSES);
 
 export const users = pgTable(
   'users',
@@ -225,8 +228,8 @@ export const tasks = pgTable(
     status: taskStatusEnum('status').notNull().default('todo'),
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     assigneeId: uuid('assignee_id').references(() => users.id, { onDelete: 'set null' }),
-    /** null = Personal. FK to groups is added in Phase 2. */
-    groupId: uuid('group_id'),
+    /** null = Personal */
+    groupId: uuid('group_id').references(() => groups.id, { onDelete: 'cascade' }),
     completedAt: ts('completed_at'),
     source: taskSourceEnum('source').notNull().default('text'),
     audioFileId: uuid('audio_file_id').references(() => files.id, { onDelete: 'set null' }),
@@ -249,6 +252,9 @@ export const tasks = pgTable(
       .where(sql`deleted_at IS NULL`),
     index('tasks_group_idx')
       .on(t.groupId, t.status, t.dueAt)
+      .where(sql`deleted_at IS NULL`),
+    index('tasks_group_assignee_idx')
+      .on(t.groupId, t.assigneeId, t.status)
       .where(sql`deleted_at IS NULL`),
     index('tasks_purge_idx').on(t.purgeAfter),
     index('tasks_search_trgm_idx').using(
@@ -275,6 +281,131 @@ export const taskActivity = pgTable(
   (t) => [index('task_activity_task_idx').on(t.taskId, t.createdAt)],
 );
 
+export const groups = pgTable(
+  'groups',
+  {
+    id: uuid('id').primaryKey(),
+    name: varchar('name', { length: 60 }).notNull(),
+    /** A single emoji, or null for the default icon. */
+    icon: varchar('icon', { length: 16 }),
+    membersCanInvite: boolean('members_can_invite').notNull().default(false),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    deletedAt: ts('deleted_at'),
+    deletedBy: uuid('deleted_by').references(() => users.id, { onDelete: 'set null' }),
+    removedAt: ts('removed_at'),
+    removedBy: uuid('removed_by').references(() => users.id, { onDelete: 'set null' }),
+    purgeAfter: ts('purge_after'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index('groups_purge_idx').on(t.purgeAfter)],
+);
+
+export const groupMembers = pgTable(
+  'group_members',
+  {
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    role: groupRoleEnum('role').notNull().default('member'),
+    joinedAt: ts('joined_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.groupId, t.userId] }),
+    index('group_members_user_idx').on(t.userId),
+  ],
+);
+
+export const groupInvites = pgTable(
+  'group_invites',
+  {
+    id: uuid('id').primaryKey(),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id, { onDelete: 'cascade' }),
+    code: varchar('code', { length: 16 }).notNull(),
+    invitedBy: uuid('invited_by').references(() => users.id, { onDelete: 'set null' }),
+    channel: inviteChannelEnum('channel').notNull(),
+    /**
+     * Email/phone invites: a keyed hash of the normalised address (so we don't keep a
+     * non-member's contact details) plus a masked copy to show in the invite list.
+     */
+    targetHash: varchar('target_hash', { length: 64 }),
+    targetMasked: varchar('target_masked', { length: 64 }),
+    maxUses: integer('max_uses').notNull(),
+    useCount: integer('use_count').notNull().default(0),
+    expiresAt: ts('expires_at').notNull(),
+    revokedAt: ts('revoked_at'),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex('group_invites_code_unique').on(t.code),
+    index('group_invites_group_idx').on(t.groupId, t.createdAt),
+  ],
+);
+
+export const comments = pgTable(
+  'comments',
+  {
+    id: uuid('id').primaryKey(),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => tasks.id, { onDelete: 'cascade' }),
+    authorId: uuid('author_id').references(() => users.id, { onDelete: 'set null' }),
+    /** Text comments. Voice comments (Phase 3) may have only audio + transcript. */
+    body: varchar('body', { length: 2000 }),
+    audioFileId: uuid('audio_file_id').references(() => files.id, { onDelete: 'set null' }),
+    transcript: text('transcript'),
+    editedAt: ts('edited_at'),
+    deletedAt: ts('deleted_at'),
+    removedAt: ts('removed_at'),
+    removedBy: uuid('removed_by').references(() => users.id, { onDelete: 'set null' }),
+    purgeAfter: ts('purge_after'),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('comments_task_idx')
+      .on(t.taskId, t.createdAt)
+      .where(sql`deleted_at IS NULL`),
+    index('comments_author_idx').on(t.authorId),
+    index('comments_purge_idx').on(t.purgeAfter),
+  ],
+);
+
+export const reports = pgTable(
+  'reports',
+  {
+    id: uuid('id').primaryKey(),
+    reporterId: uuid('reporter_id').references(() => users.id, { onDelete: 'set null' }),
+    targetType: reportTargetEnum('target_type').notNull(),
+    targetId: uuid('target_id').notNull(),
+    /** Group the item belongs to (or where the reported member was seen), for context. */
+    groupId: uuid('group_id').references(() => groups.id, { onDelete: 'set null' }),
+    /** The person responsible: author, creator, or the reported user. */
+    ownerId: uuid('owner_id').references(() => users.id, { onDelete: 'set null' }),
+    reason: reportReasonEnum('reason').notNull(),
+    details: varchar('details', { length: 1000 }),
+    /** The reported content as it was at report time (evidence if it is edited later). */
+    snapshot: jsonb('snapshot').$type<Record<string, unknown>>().notNull().default({}),
+    status: reportStatusEnum('status').notNull().default('open'),
+    action: varchar('action', { length: 20 }),
+    resolutionNote: varchar('resolution_note', { length: 500 }),
+    resolvedBy: uuid('resolved_by').references(() => users.id, { onDelete: 'set null' }),
+    resolvedAt: ts('resolved_at'),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('reports_status_idx').on(t.status, t.createdAt),
+    index('reports_target_idx').on(t.targetType, t.targetId),
+    uniqueIndex('reports_open_unique')
+      .on(t.reporterId, t.targetType, t.targetId)
+      .where(sql`status = 'open'`),
+  ],
+);
+
 export const schema = {
   users,
   sessions,
@@ -286,4 +417,9 @@ export const schema = {
   files,
   tasks,
   taskActivity,
+  groups,
+  groupMembers,
+  groupInvites,
+  comments,
+  reports,
 };

@@ -24,6 +24,10 @@ export function createCrypto(opts: { encryptionKey: string; ipSalt: string }) {
       decipher.setAuthTag(buf.subarray(12, 28));
       return Buffer.concat([decipher.update(buf.subarray(28)), decipher.final()]).toString('utf8');
     },
+    /** Keyed one-way hash for matching a value later without storing it (e.g. an invitee's email). */
+    keyedHash(purpose: string, value: string): string {
+      return createHmac('sha256', opts.ipSalt).update(`${purpose}:${value}`).digest('hex');
+    },
     /** One-way hash so audit logs can correlate IPs without storing them. */
     hashIp(ip: string | null | undefined): string | null {
       if (!ip) return null;

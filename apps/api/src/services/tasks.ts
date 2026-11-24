@@ -2,13 +2,18 @@ import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, or, sql, type SQL }
 import { alias } from 'drizzle-orm/pg-core';
 import {
   RETENTION_DAYS,
+  canAssign,
   canChangeTaskStatus,
+  canComment,
+  canCreateTaskIn,
   canDeleteTask,
   canEditTask,
+  canMoveTask,
+  canReport,
   canViewTask,
   localDate,
   type ActivityDto,
-  type Actor,
+  type GroupRef,
   type TaskCountsDto,
   type TaskDto,
   type TaskListResponse,
@@ -18,26 +23,41 @@ import {
 } from '@todo/shared';
 import type { z } from 'zod';
 import type { Db } from '../db/client';
-import { taskActivity, tasks, users } from '../db/schema';
+import { files, groupMembers, groups, taskActivity, tasks, users } from '../db/schema';
 import { AppError, notFound } from '../lib/errors';
 import { newId } from '../lib/ids';
+import type { AvatarUrl } from './avatars';
+import type { DailyLimits } from './daily-limits';
+import { groupIdsOf, type Viewer } from './membership';
 
 type TaskRow = typeof tasks.$inferSelect;
 type ActivityInsert = typeof taskActivity.$inferInsert;
-type Viewer = { id: string; timeZone: string };
+type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 
 const creator = alias(users, 'creator');
 const assignee = alias(users, 'assignee');
+const assigneeAvatar = alias(files, 'assignee_avatar');
 
 const retentionDate = () => new Date(Date.now() + RETENTION_DAYS * 24 * 3600 * 1000);
 
-/** Rows the viewer may see. Phase 1: personal tasks only; Phase 2 adds group membership. */
-function visibleTo(viewer: Viewer): SQL {
+/** Content by suspended users is hidden from everyone else (the viewer is never suspended). */
+export const creatorNotSuspended = sql`NOT EXISTS (SELECT 1 FROM users su WHERE su.id = ${tasks.createdBy} AND su.suspended_at IS NOT NULL)`;
+
+/**
+ * Rows the viewer may see: their personal tasks, plus every task in the active groups they
+ * belong to. Hidden: deleted, removed by a moderator, or created by a suspended user.
+ */
+export function visibleTo(viewer: Viewer): SQL {
+  const groupIds = groupIdsOf(viewer);
+  const personal = and(
+    isNull(tasks.groupId),
+    or(eq(tasks.createdBy, viewer.id), eq(tasks.assigneeId, viewer.id)),
+  ) as SQL;
   return and(
     isNull(tasks.deletedAt),
     isNull(tasks.removedAt),
-    isNull(tasks.groupId),
-    or(eq(tasks.createdBy, viewer.id), eq(tasks.assigneeId, viewer.id)),
+    groupIds.length ? (or(personal, inArray(tasks.groupId, groupIds)) as SQL) : personal,
+    creatorNotSuspended,
   ) as SQL;
 }
 
@@ -60,55 +80,138 @@ const dueTodayCond = (tz: string, today: string): SQL =>
 
 const escapeLike = (s: string) => s.replace(/[\\%_]/g, (m) => `\\${m}`);
 
-function actorOf(viewer: Viewer): Actor {
-  return { id: viewer.id };
-}
+const commentCount = sql<number>`(SELECT count(*) FROM comments c WHERE c.task_id = ${tasks.id} AND c.deleted_at IS NULL AND c.removed_at IS NULL AND NOT EXISTS (SELECT 1 FROM users cu WHERE cu.id = c.author_id AND cu.suspended_at IS NOT NULL))::int`;
 
-type JoinedRow = { task: TaskRow; creatorName: string | null; assigneeName: string | null };
+type JoinedRow = {
+  task: TaskRow;
+  creatorName: string | null;
+  assigneeName: string | null;
+  assigneeImage: string | null;
+  assigneeAvatarKey: string | null;
+  groupName: string | null;
+  groupIcon: string | null;
+  commentCount: number;
+};
 
-function toDto(row: JoinedRow, viewer: Viewer): TaskDto {
-  const t = row.task;
-  const facts = { createdBy: t.createdBy, assigneeId: t.assigneeId, groupId: t.groupId };
-  const actor = actorOf(viewer);
-  return {
-    id: t.id,
-    title: t.title,
-    description: t.description,
-    dueAt: t.dueAt?.toISOString() ?? null,
-    dueHasTime: t.dueHasTime,
-    priority: t.priority,
-    status: t.status,
-    source: t.source,
-    groupId: t.groupId,
-    createdBy: t.createdBy ? { id: t.createdBy, name: row.creatorName ?? '' } : null,
-    assignee: t.assigneeId ? { id: t.assigneeId, name: row.assigneeName ?? '' } : null,
-    completedAt: t.completedAt?.toISOString() ?? null,
-    version: t.version,
-    createdAt: t.createdAt.toISOString(),
-    updatedAt: t.updatedAt.toISOString(),
-    permissions: {
-      edit: canEditTask(actor, facts),
-      delete: canDeleteTask(actor, facts),
-      changeStatus: canChangeTaskStatus(actor, facts),
-    },
-  };
-}
+export const taskFacts = (t: Pick<TaskRow, 'createdBy' | 'assigneeId' | 'groupId'>) => ({
+  createdBy: t.createdBy,
+  assigneeId: t.assigneeId,
+  groupId: t.groupId,
+});
 
-export function createTaskService(db: Db) {
+export function createTaskService(db: Db, avatarUrl: AvatarUrl, limits: DailyLimits) {
   const selectJoined = () =>
     db
-      .select({ task: tasks, creatorName: creator.name, assigneeName: assignee.name })
+      .select({
+        task: tasks,
+        creatorName: creator.name,
+        assigneeName: assignee.name,
+        assigneeImage: assignee.image,
+        assigneeAvatarKey: assigneeAvatar.storageKey,
+        groupName: groups.name,
+        groupIcon: groups.icon,
+        commentCount,
+      })
       .from(tasks)
       .leftJoin(creator, eq(creator.id, tasks.createdBy))
-      .leftJoin(assignee, eq(assignee.id, tasks.assigneeId));
+      .leftJoin(assignee, eq(assignee.id, tasks.assigneeId))
+      .leftJoin(
+        assigneeAvatar,
+        and(eq(assigneeAvatar.id, assignee.avatarFileId), isNull(assigneeAvatar.deletedAt)),
+      )
+      .leftJoin(groups, eq(groups.id, tasks.groupId));
+
+  async function toDto(row: JoinedRow, viewer: Viewer): Promise<TaskDto> {
+    const t = row.task;
+    const facts = taskFacts(t);
+    const group: GroupRef | null =
+      t.groupId && row.groupName !== null
+        ? { id: t.groupId, name: row.groupName, icon: row.groupIcon }
+        : null;
+    return {
+      id: t.id,
+      title: t.title,
+      description: t.description,
+      dueAt: t.dueAt?.toISOString() ?? null,
+      dueHasTime: t.dueHasTime,
+      priority: t.priority,
+      status: t.status,
+      source: t.source,
+      groupId: t.groupId,
+      group,
+      createdBy: t.createdBy ? { id: t.createdBy, name: row.creatorName ?? '' } : null,
+      assignee: t.assigneeId
+        ? {
+            id: t.assigneeId,
+            name: row.assigneeName ?? '',
+            avatarUrl: await avatarUrl({
+              avatarKey: row.assigneeAvatarKey,
+              image: row.assigneeImage,
+            }),
+          }
+        : null,
+      commentCount: row.commentCount ?? 0,
+      completedAt: t.completedAt?.toISOString() ?? null,
+      version: t.version,
+      createdAt: t.createdAt.toISOString(),
+      updatedAt: t.updatedAt.toISOString(),
+      permissions: {
+        edit: canEditTask(viewer, facts),
+        delete: canDeleteTask(viewer, facts),
+        changeStatus: canChangeTaskStatus(viewer, facts),
+        assign: canAssign(viewer, facts),
+        move: t.createdBy === viewer.id,
+        comment: canComment(viewer, facts),
+        report: canReport(viewer, { type: 'task', ownerId: t.createdBy }),
+      },
+    };
+  }
 
   async function getVisibleRow(viewer: Viewer, id: string): Promise<JoinedRow> {
     const [row] = await selectJoined()
       .where(and(eq(tasks.id, id), visibleTo(viewer)))
       .limit(1);
     // 404 (never 403) so other users' task ids do not leak.
-    if (!row || !canViewTask(actorOf(viewer), row.task)) throw notFound();
+    if (!row || !canViewTask(viewer, row.task)) throw notFound();
     return row;
+  }
+
+  /** The assignee must be a member of the group (checked against the database, not the request). */
+  async function assertMember(tx: Db | Tx, groupId: string, userId: string) {
+    const [m] = await tx
+      .select({ userId: groupMembers.userId })
+      .from(groupMembers)
+      .innerJoin(users, eq(users.id, groupMembers.userId))
+      .where(
+        and(
+          eq(groupMembers.groupId, groupId),
+          eq(groupMembers.userId, userId),
+          isNull(users.suspendedAt),
+        ),
+      )
+      .limit(1);
+    if (!m)
+      throw new AppError('not_a_member', 'The assignee is not a member of this group', {
+        fields: { assigneeId: 'not_a_member' },
+      });
+  }
+
+  async function userRef(tx: Db | Tx, id: string | null) {
+    if (!id) return null;
+    const u = await tx.query.users.findFirst({
+      where: eq(users.id, id),
+      columns: { id: true, name: true },
+    });
+    return u ? { id: u.id, name: u.name } : { id, name: '' };
+  }
+
+  async function groupRef(tx: Db | Tx, id: string | null) {
+    if (!id) return null;
+    const g = await tx.query.groups.findFirst({
+      where: eq(groups.id, id),
+      columns: { id: true, name: true, icon: true },
+    });
+    return g ? { id: g.id, name: g.name, icon: g.icon } : null;
   }
 
   return {
@@ -121,6 +224,14 @@ export function createTaskService(db: Db) {
       const today = localDate(tz, now);
       const conds: SQL[] = [visibleTo(viewer)];
       let order: SQL[];
+      const openUnlessFiltered = () => {
+        if (!q.status?.length) conds.push(ne(tasks.status, 'done'));
+      };
+      const byDue = [
+        sql`${tasks.dueAt} ASC NULLS LAST`,
+        desc(tasks.priority),
+        desc(tasks.createdAt),
+      ];
 
       switch (q.view) {
         case 'today':
@@ -140,11 +251,31 @@ export function createTaskService(db: Db) {
           conds.push(eq(tasks.status, 'done'));
           order = [sql`${tasks.completedAt} DESC NULLS LAST`, desc(tasks.updatedAt)];
           break;
+        case 'assigned_by_me':
+          conds.push(
+            eq(tasks.createdBy, viewer.id),
+            isNotNull(tasks.assigneeId),
+            ne(tasks.assigneeId, viewer.id),
+          );
+          openUnlessFiltered();
+          order = byDue;
+          break;
+        case 'all':
+          openUnlessFiltered();
+          order = byDue;
+          break;
         case 'mine':
         default:
-          if (!q.status?.length) conds.push(ne(tasks.status, 'done'));
-          order = [sql`${tasks.dueAt} ASC NULLS LAST`, desc(tasks.priority), desc(tasks.createdAt)];
+          conds.push(eq(tasks.assigneeId, viewer.id));
+          openUnlessFiltered();
+          order = byDue;
       }
+
+      if (q.group === 'personal') conds.push(isNull(tasks.groupId));
+      else if (q.group) conds.push(eq(tasks.groupId, q.group));
+      if (q.assignee === 'me') conds.push(eq(tasks.assigneeId, viewer.id));
+      else if (q.assignee === 'none') conds.push(isNull(tasks.assigneeId));
+      else if (q.assignee) conds.push(eq(tasks.assigneeId, q.assignee));
 
       if (q.status?.length) conds.push(inArray(tasks.status, q.status));
       if (q.priority?.length) conds.push(inArray(tasks.priority, q.priority));
@@ -164,11 +295,12 @@ export function createTaskService(db: Db) {
         .offset(offset);
       const hasMore = rows.length > q.limit;
       return {
-        items: rows.slice(0, q.limit).map((r) => toDto(r, viewer)),
+        items: await Promise.all(rows.slice(0, q.limit).map((r) => toDto(r, viewer))),
         nextCursor: hasMore ? Buffer.from(String(offset + q.limit)).toString('base64url') : null,
       };
     },
 
+    /** Badge counts: tasks assigned to me (personal and group). */
     async counts(viewer: Viewer, now = new Date()): Promise<TaskCountsDto> {
       const tz = viewer.timeZone;
       const today = localDate(tz, now);
@@ -179,12 +311,17 @@ export function createTaskService(db: Db) {
           open: sql<number>`count(*) FILTER (WHERE ${ne(tasks.status, 'done')})::int`,
         })
         .from(tasks)
-        .where(visibleTo(viewer));
+        .where(and(visibleTo(viewer), eq(tasks.assigneeId, viewer.id)));
       return { today: row?.today ?? 0, overdue: row?.overdue ?? 0, open: row?.open ?? 0 };
     },
 
     async get(viewer: Viewer, id: string): Promise<TaskDto> {
       return toDto(await getVisibleRow(viewer, id), viewer);
+    },
+
+    /** For comments and reports: the raw row, if the viewer can see it. */
+    async getVisible(viewer: Viewer, id: string): Promise<TaskRow> {
+      return (await getVisibleRow(viewer, id)).task;
     },
 
     async create(viewer: Viewer, input: z.output<typeof taskCreateSchema>, ipHash: string | null) {
@@ -201,6 +338,22 @@ export function createTaskService(db: Db) {
           throw new AppError('conflict', 'This id is already used');
         }
       }
+      const groupId = input.groupId ?? null;
+      // A group the viewer isn't in looks the same as one that doesn't exist.
+      if (!canCreateTaskIn(viewer, groupId)) throw notFound();
+      let assigneeId: string | null;
+      if (!groupId) {
+        if (input.assigneeId && input.assigneeId !== viewer.id)
+          throw new AppError('validation_failed', 'Personal tasks are assigned to you', {
+            fields: { assigneeId: 'invalid' },
+          });
+        assigneeId = viewer.id; // Personal tasks are always assigned to the creator.
+      } else {
+        assigneeId = input.assigneeId ?? null;
+        if (assigneeId) await assertMember(db, groupId, assigneeId);
+      }
+      await limits.consume('tasks', viewer.id);
+
       const dueAt = input.dueAt ? new Date(input.dueAt) : null;
       await db.transaction(async (tx) => {
         await tx.insert(tasks).values({
@@ -213,13 +366,23 @@ export function createTaskService(db: Db) {
           status: input.status,
           completedAt: input.status === 'done' ? new Date() : null,
           createdBy: viewer.id,
-          assigneeId: viewer.id, // Personal tasks are always assigned to the creator.
-          groupId: null,
+          assigneeId,
+          groupId,
           source: 'text',
         });
-        await tx
-          .insert(taskActivity)
-          .values({ id: newId(), taskId: id, actorId: viewer.id, type: 'created', ipHash });
+        const activity: ActivityInsert[] = [
+          { id: newId(), taskId: id, actorId: viewer.id, type: 'created', ipHash },
+        ];
+        if (groupId && assigneeId)
+          activity.push({
+            id: newId(),
+            taskId: id,
+            actorId: viewer.id,
+            type: 'assigned',
+            toValue: await userRef(tx, assigneeId),
+            ipHash,
+          });
+        await tx.insert(taskActivity).values(activity);
       });
       return { task: await this.get(viewer, id), created: true };
     },
@@ -231,19 +394,44 @@ export function createTaskService(db: Db) {
       ipHash: string | null,
     ) {
       const { task: current } = await getVisibleRow(viewer, id);
-      const actor = actorOf(viewer);
-      const facts = {
-        createdBy: current.createdBy,
-        assigneeId: current.assigneeId,
-        groupId: current.groupId,
-      };
+      const facts = taskFacts(current);
       const fieldKeys = (
         ['title', 'description', 'dueAt', 'dueHasTime', 'priority'] as const
       ).filter((k) => input[k] !== undefined);
-      if (fieldKeys.length && !canEditTask(actor, facts))
+      if (fieldKeys.length && !canEditTask(viewer, facts))
         throw new AppError('forbidden', 'You cannot edit this task');
-      if (input.status !== undefined && !canChangeTaskStatus(actor, facts))
+      if (input.status !== undefined && !canChangeTaskStatus(viewer, facts))
         throw new AppError('forbidden', 'You cannot change this task');
+
+      const moving = input.groupId !== undefined && input.groupId !== current.groupId;
+      const targetGroup = moving ? (input.groupId ?? null) : current.groupId;
+      if (moving && !canMoveTask(viewer, facts, targetGroup)) {
+        if (targetGroup && !viewer.groupRoles[targetGroup]) throw notFound();
+        throw new AppError('forbidden', 'Only the person who created a task can move it');
+      }
+
+      // Work out the assignee after this change.
+      let nextAssignee = current.assigneeId;
+      if (!targetGroup) {
+        // Personal: always the creator.
+        if (input.assigneeId !== undefined && input.assigneeId !== current.createdBy)
+          throw new AppError('validation_failed', 'Personal tasks are assigned to their creator', {
+            fields: { assigneeId: 'invalid' },
+          });
+        nextAssignee = current.createdBy;
+      } else if (input.assigneeId !== undefined && input.assigneeId !== current.assigneeId) {
+        if (!moving && !canAssign(viewer, facts))
+          throw new AppError('forbidden', 'You cannot reassign this task');
+        nextAssignee = input.assigneeId;
+        if (nextAssignee) await assertMember(db, targetGroup, nextAssignee);
+      } else if (moving && current.assigneeId) {
+        // Keep the assignee if they are in the new group too; otherwise it becomes unassigned.
+        try {
+          await assertMember(db, targetGroup, current.assigneeId);
+        } catch {
+          nextAssignee = null;
+        }
+      }
 
       const patch: Partial<typeof tasks.$inferInsert> = {};
       const activity: ActivityInsert[] = [];
@@ -289,8 +477,20 @@ export function createTaskService(db: Db) {
         patch.completedAt = input.status === 'done' ? new Date() : null;
         log('status_changed', current.status, input.status);
       }
+      if (moving) {
+        patch.groupId = targetGroup;
+        log('moved', await groupRef(db, current.groupId), await groupRef(db, targetGroup));
+      }
+      if (nextAssignee !== current.assigneeId) {
+        patch.assigneeId = nextAssignee;
+        // Moving to Personal resets the assignee to the creator silently (it's implied by the move).
+        if (targetGroup) {
+          if (nextAssignee) log('assigned', null, await userRef(db, nextAssignee));
+          else log('unassigned', await userRef(db, current.assigneeId), null);
+        }
+      }
 
-      if (!activity.length) {
+      if (!activity.length && !Object.keys(patch).length) {
         if (input.version !== current.version)
           throw new AppError('conflict', 'This task was changed elsewhere', {
             details: await this.get(viewer, id),
@@ -305,7 +505,7 @@ export function createTaskService(db: Db) {
           .where(and(eq(tasks.id, id), eq(tasks.version, input.version), isNull(tasks.deletedAt)))
           .returning({ id: tasks.id });
         if (!rows.length) return false;
-        await tx.insert(taskActivity).values(activity);
+        if (activity.length) await tx.insert(taskActivity).values(activity);
         return true;
       });
       if (!updated)
@@ -317,7 +517,7 @@ export function createTaskService(db: Db) {
 
     async remove(viewer: Viewer, id: string, ipHash: string | null) {
       const { task } = await getVisibleRow(viewer, id);
-      if (!canDeleteTask(actorOf(viewer), task))
+      if (!canDeleteTask(viewer, task))
         throw new AppError('forbidden', 'You cannot delete this task');
       await db.transaction(async (tx) => {
         // Hidden at once for everyone; kept for 180 days, then purged by the daily job.
@@ -348,6 +548,45 @@ export function createTaskService(db: Db) {
         to: a.toValue,
         createdAt: a.createdAt.toISOString(),
       }));
+    },
+
+    /**
+     * A member left or was removed: their open tasks in that group become unassigned.
+     * Runs inside the caller's transaction.
+     */
+    async unassignMember(
+      tx: Tx,
+      groupId: string,
+      userId: string,
+      actorId: string,
+      ipHash: string | null,
+    ) {
+      const open = await tx
+        .update(tasks)
+        .set({ assigneeId: null, version: sql`${tasks.version} + 1` })
+        .where(
+          and(
+            eq(tasks.groupId, groupId),
+            eq(tasks.assigneeId, userId),
+            ne(tasks.status, 'done'),
+            isNull(tasks.deletedAt),
+          ),
+        )
+        .returning({ id: tasks.id });
+      if (!open.length) return 0;
+      const who = await userRef(tx, userId);
+      await tx.insert(taskActivity).values(
+        open.map((t) => ({
+          id: newId(),
+          taskId: t.id,
+          actorId,
+          type: 'unassigned' as const,
+          fromValue: who,
+          toValue: null,
+          ipHash,
+        })),
+      );
+      return open.length;
     },
   };
 }

@@ -68,6 +68,7 @@ S3_SECRET_ACCESS_KEY=<from step 1>
 RUN_WORKER_IN_PROCESS=true
 RATE_LIMITS_ENABLED=true
 SENTRY_DSN=<optional, from step 6>
+OWNER_EMAILS=<your email — only this verified account can open /admin to review reports>
 ```
 
 5. **Deploy**. The first build takes a few minutes. When it's done, open `<railway url>/health/ready`.
@@ -125,8 +126,28 @@ Point any free uptime monitor (UptimeRobot, Better Stack) at `https://<project>.
    add a phone number, log out from all devices, download your data, delete the account.
 6. Chrome menu → **Add to Home screen**. ToDo opens like an app.
 
+### Phase 2: groups (you need two accounts)
+
+Use your phone for one account and a private/incognito window (or a second phone) for the other.
+
+1. **Groups** tab → **Create a group** → name it, pick an icon. The invite sheet opens with a link and a code.
+2. **Share link** (or **Copy link**) and open it in the other window. Signed out, it shows the group and asks
+   you to create an account or log in; after the code is verified it comes back to the invite → **Join group**.
+3. In the first account: **Add task** on the group page → under **Where & who**, pick the other person.
+4. In the second account: the task is in **My tasks** with the group's name. Tick it done, open it, add a comment.
+5. In the first account: the group page → **Show done** → open the task. You see the status change and the comment.
+6. **Report** a comment (from the second account's comment) → open `https://<project>.pages.dev/admin` while
+   signed in with the email in `OWNER_EMAILS` → open the report → **Remove content**. The comment now reads
+   "Removed by a moderator" for everyone.
+7. Group settings: make the other person an admin, remove them, leave, delete the group. Try leaving as the
+   only admin: it tells you to make someone else admin first.
+
+Invites by **email** to other people need your domain verified in Resend (until then Resend only delivers to
+your own address). Invites by **SMS** are emailed to `SMS_FORWARD_TO` on staging, like the codes.
+
 ## Production later
 
 Create a `production` environment in the same Railway project and a second Pages project
 (or a production branch) with its own secrets, a real domain, `SMS_DRIVER=msg91` and a verified
-Resend domain. `SMS_DRIVER=forward-email` is refused in production.
+Resend domain. Phone invites in production also need a second DLT template (`MSG91_INVITE_TEMPLATE_ID`,
+variables `inviter`, `group`, `link`); without it the app says SMS invites aren't available yet. `SMS_DRIVER=forward-email` is refused in production.

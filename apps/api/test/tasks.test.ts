@@ -23,7 +23,15 @@ describe('tasks', () => {
       version: 1,
     });
     expect(t.assignee.id).toBe(t.createdBy.id);
-    expect(t.permissions).toEqual({ edit: true, delete: true, changeStatus: true });
+    expect(t.permissions).toEqual({
+      edit: true,
+      delete: true,
+      changeStatus: true,
+      assign: false,
+      move: true,
+      comment: true,
+      report: false,
+    });
     const activity = (await c.get(`/api/v1/tasks/${t.id}/activity`)).json();
     expect(activity.map((a: { type: string }) => a.type)).toEqual(['created']);
   });

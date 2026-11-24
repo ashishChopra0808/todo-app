@@ -27,3 +27,59 @@ describe('task rules', () => {
     expect(canViewTask(outsider, task)).toBe(false);
   });
 });
+
+import {
+  canAssign,
+  canComment,
+  canEditComment,
+  canInvite,
+  canManageGroup,
+  canMoveTask,
+  canRemoveMember,
+  canReport,
+} from './rules';
+
+describe('group rules', () => {
+  const admin = { id: 'a', groupRoles: { g1: 'admin' as const } };
+  const member = { id: 'm', groupRoles: { g1: 'member' as const, g2: 'member' as const } };
+  const outsider = { id: 'x', groupRoles: {} };
+
+  it('only admins manage; members invite when allowed', () => {
+    expect(canManageGroup(admin, 'g1')).toBe(true);
+    expect(canManageGroup(member, 'g1')).toBe(false);
+    expect(canInvite(member, { id: 'g1', membersCanInvite: false })).toBe(false);
+    expect(canInvite(member, { id: 'g1', membersCanInvite: true })).toBe(true);
+    expect(canInvite(outsider, { id: 'g1', membersCanInvite: true })).toBe(false);
+  });
+
+  it('leave yourself; admins remove others', () => {
+    expect(canRemoveMember(member, 'g1', 'm')).toBe(true);
+    expect(canRemoveMember(member, 'g1', 'a')).toBe(false);
+    expect(canRemoveMember(admin, 'g1', 'm')).toBe(true);
+    expect(canRemoveMember(outsider, 'g1', 'x')).toBe(false);
+  });
+
+  it('assign and move', () => {
+    const groupTask = { createdBy: 'm', assigneeId: null, groupId: 'g1' };
+    expect(canAssign(member, groupTask)).toBe(true);
+    expect(canAssign(admin, groupTask)).toBe(true);
+    expect(canAssign(admin, { ...groupTask, createdBy: 'z' })).toBe(true);
+    expect(canAssign(member, { ...groupTask, createdBy: 'z' })).toBe(false);
+    expect(canAssign(member, { createdBy: 'm', assigneeId: 'm', groupId: null })).toBe(false);
+    expect(canMoveTask(member, groupTask, 'g2')).toBe(true);
+    expect(canMoveTask(member, groupTask, null)).toBe(true);
+    expect(canMoveTask(member, groupTask, 'g3')).toBe(false);
+    expect(canMoveTask(admin, groupTask, null)).toBe(false); // admins can't move others' tasks
+  });
+
+  it('comments and reports', () => {
+    const task = { createdBy: 'a', assigneeId: null, groupId: 'g1' };
+    expect(canComment(member, task)).toBe(true);
+    expect(canComment(outsider, task)).toBe(false);
+    expect(canEditComment(member, { authorId: 'm' })).toBe(true);
+    expect(canEditComment(admin, { authorId: 'm' })).toBe(false);
+    expect(canEditComment(member, { authorId: null })).toBe(false);
+    expect(canReport(member, { type: 'comment', ownerId: 'm' })).toBe(false);
+    expect(canReport(member, { type: 'comment', ownerId: 'a' })).toBe(true);
+  });
+});

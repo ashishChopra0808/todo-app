@@ -1,5 +1,6 @@
 import {
   infiniteQueryOptions,
+  useInfiniteQuery,
   keepPreviousData,
   queryOptions,
   useMutation,
@@ -10,14 +11,28 @@ import {
 } from '@tanstack/react-query';
 import type {
   ActivityDto,
+  AdminReportDetailDto,
+  AdminReportDto,
+  CommentDto,
+  CommentListResponse,
+  GroupCreateInput,
+  GroupDto,
+  GroupMemberDto,
+  GroupRole,
+  GroupUpdateInput,
+  InviteCreateInput,
+  InviteDto,
+  InvitePreviewDto,
   MeDto,
   ProfileUpdateInput,
+  ReportCreateInput,
   SessionDto,
   TaskCountsDto,
   TaskCreateInput,
   TaskDto,
   TaskListResponse,
   TaskUpdateInput,
+  TaskView,
 } from '@todo/shared';
 import { ApiError, del, get, patch, post } from './client';
 
@@ -28,7 +43,14 @@ export const keys = {
   counts: ['tasks', 'counts'] as const,
   task: (id: string) => ['tasks', 'one', id] as const,
   activity: (id: string) => ['tasks', 'activity', id] as const,
+  comments: (taskId: string) => ['tasks', 'comments', taskId] as const,
   sessions: ['sessions'] as const,
+  groups: ['groups'] as const,
+  group: (id: string) => ['groups', 'one', id] as const,
+  members: (id: string) => ['groups', 'members', id] as const,
+  invites: (id: string) => ['groups', 'invites', id] as const,
+  invitePreview: (code: string) => ['invite', code] as const,
+  admin: ['admin'] as const,
 };
 
 export const meQuery = {
@@ -54,7 +76,11 @@ export function toQueryString(
 }
 
 export interface ListParams {
-  view: 'today' | 'mine' | 'overdue' | 'completed';
+  view: TaskView;
+  /** A group id, or "personal". */
+  group?: string;
+  /** A user id, "me" or "none". */
+  assignee?: string;
   q?: string;
   status?: string[];
   priority?: string[];
@@ -230,5 +256,272 @@ export function useSessions() {
   return useQuery({
     queryKey: keys.sessions,
     queryFn: () => get<SessionDto[]>('/api/v1/me/sessions'),
+  });
+}
+
+/* ---------- Groups ---------- */
+
+export const groupsOptions = queryOptions({
+  queryKey: keys.groups,
+  queryFn: () => get<GroupDto[]>('/api/v1/groups'),
+  staleTime: 30_000,
+});
+
+export function useGroups() {
+  return useQuery(groupsOptions);
+}
+
+export function useGroup(id: string) {
+  return useQuery({
+    queryKey: keys.group(id),
+    queryFn: () => get<GroupDto>(`/api/v1/groups/${id}`),
+    retry: (n, e) => !(e instanceof ApiError && e.status === 404) && n < 2,
+  });
+}
+
+export function useMembers(id: string | null | undefined) {
+  return useQuery({
+    queryKey: keys.members(id ?? ''),
+    queryFn: () => get<GroupMemberDto[]>(`/api/v1/groups/${id}/members`),
+    enabled: !!id,
+    staleTime: 30_000,
+  });
+}
+
+export function useInvites(id: string, enabled = true) {
+  return useQuery({
+    queryKey: keys.invites(id),
+    queryFn: () => get<InviteDto[]>(`/api/v1/groups/${id}/invites`),
+    enabled,
+  });
+}
+
+/** After any group change: the group lists, the group itself, and task lists (names, access). */
+function refreshGroups(qc: QueryClient, id?: string) {
+  void qc.invalidateQueries({ queryKey: keys.groups });
+  if (id) void qc.invalidateQueries({ queryKey: keys.group(id) });
+}
+
+export function useCreateGroup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: GroupCreateInput) => post<GroupDto>('/api/v1/groups', input),
+    onSuccess: (g) => {
+      qc.setQueryData(keys.group(g.id), g);
+      refreshGroups(qc);
+    },
+  });
+}
+
+export function useUpdateGroup(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: GroupUpdateInput) => patch<GroupDto>(`/api/v1/groups/${id}`, input),
+    onSuccess: (g) => {
+      qc.setQueryData(keys.group(id), g);
+      refreshGroups(qc);
+      void qc.invalidateQueries({ queryKey: keys.tasks });
+    },
+  });
+}
+
+export function useDeleteGroup(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => del<void>(`/api/v1/groups/${id}`),
+    onSuccess: () => {
+      qc.removeQueries({ queryKey: keys.group(id) });
+      refreshGroups(qc);
+      void qc.invalidateQueries({ queryKey: keys.tasks });
+    },
+  });
+}
+
+export function useChangeRole(groupId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, role }: { userId: string; role: GroupRole }) =>
+      patch<GroupMemberDto[]>(`/api/v1/groups/${groupId}/members/${userId}`, { role }),
+    onSuccess: (members) => {
+      qc.setQueryData(keys.members(groupId), members);
+      refreshGroups(qc, groupId);
+    },
+  });
+}
+
+export function useRemoveMember(groupId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) =>
+      del<{ unassignedTasks: number }>(`/api/v1/groups/${groupId}/members/${userId}`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.members(groupId) });
+      refreshGroups(qc, groupId);
+      void qc.invalidateQueries({ queryKey: keys.tasks });
+    },
+  });
+}
+
+export function useCreateInvite(groupId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: InviteCreateInput) =>
+      post<InviteDto>(`/api/v1/groups/${groupId}/invites`, input),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.invites(groupId) }),
+  });
+}
+
+export function useRevokeInvite(groupId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (inviteId: string) => del<void>(`/api/v1/invites/${inviteId}`),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.invites(groupId) }),
+  });
+}
+
+export function useInvitePreview(code: string) {
+  return useQuery({
+    queryKey: keys.invitePreview(code),
+    queryFn: () => get<InvitePreviewDto>(`/api/v1/invites/${encodeURIComponent(code)}`),
+    retry: false,
+  });
+}
+
+export function useAcceptInvite() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (code: string) =>
+      post<GroupDto>(`/api/v1/invites/${encodeURIComponent(code)}/accept`),
+    onSuccess: (g) => {
+      qc.setQueryData(keys.group(g.id), g);
+      refreshGroups(qc);
+      void qc.invalidateQueries({ queryKey: keys.tasks });
+    },
+  });
+}
+
+/* ---------- Comments ---------- */
+
+export function useComments(taskId: string) {
+  return useInfiniteQuery({
+    queryKey: keys.comments(taskId),
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) =>
+      get<CommentListResponse>(
+        `/api/v1/tasks/${taskId}/comments?${toQueryString({ cursor: pageParam, limit: 50 })}`,
+      ),
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+  });
+}
+
+function bumpCommentCount(qc: QueryClient, taskId: string, by: number) {
+  const fix = (t: TaskDto) =>
+    t.id === taskId ? { ...t, commentCount: Math.max(0, t.commentCount + by) } : t;
+  qc.setQueryData<TaskDto>(keys.task(taskId), (old) => (old ? fix(old) : old));
+  updateLists(qc, (items) => items.map(fix));
+}
+
+export function useAddComment(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: string) =>
+      post<CommentDto>(`/api/v1/tasks/${taskId}/comments`, { id: crypto.randomUUID(), body }),
+    onSuccess: () => {
+      bumpCommentCount(qc, taskId, 1);
+      void qc.invalidateQueries({ queryKey: keys.comments(taskId) });
+      void qc.invalidateQueries({ queryKey: keys.activity(taskId) });
+    },
+  });
+}
+
+export function useEditComment(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: string }) =>
+      patch<CommentDto>(`/api/v1/comments/${id}`, { body }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.comments(taskId) }),
+  });
+}
+
+export function useDeleteComment(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => del<void>(`/api/v1/comments/${id}`),
+    onSuccess: () => {
+      bumpCommentCount(qc, taskId, -1);
+      void qc.invalidateQueries({ queryKey: keys.comments(taskId) });
+    },
+  });
+}
+
+/* ---------- Reports and owner review ---------- */
+
+export function useReport() {
+  return useMutation({
+    mutationFn: (input: ReportCreateInput) => post<{ id: string }>('/api/v1/reports', input),
+  });
+}
+
+export function useIsOwner() {
+  return useQuery({
+    queryKey: [...keys.admin, 'me'],
+    queryFn: () => get<{ owner: true }>('/api/v1/admin/me'),
+    retry: false,
+    staleTime: Infinity,
+  });
+}
+
+export function useAdminReports(status: 'open' | 'actioned' | 'dismissed', enabled: boolean) {
+  return useQuery({
+    queryKey: [...keys.admin, 'reports', status],
+    queryFn: () =>
+      get<{ items: AdminReportDto[]; nextCursor: string | null }>(
+        `/api/v1/admin/reports?status=${status}&limit=100`,
+      ),
+    enabled,
+  });
+}
+
+export function useAdminReport(id: string | undefined) {
+  return useQuery({
+    queryKey: [...keys.admin, 'report', id],
+    queryFn: () => get<AdminReportDetailDto>(`/api/v1/admin/reports/${id}`),
+    enabled: !!id,
+  });
+}
+
+export function useResolveReport() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      ...body
+    }: {
+      id: string;
+      action: 'remove' | 'dismiss';
+      suspendOwner?: boolean;
+      note?: string;
+    }) => post<AdminReportDetailDto>(`/api/v1/admin/reports/${id}/resolve`, body),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.admin }),
+  });
+}
+
+export function useSuspendUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      userId,
+      suspend,
+      reason,
+    }: {
+      userId: string;
+      suspend: boolean;
+      reason?: string;
+    }) =>
+      post<void>(
+        `/api/v1/admin/users/${userId}/${suspend ? 'suspend' : 'unsuspend'}`,
+        suspend ? { reason } : {},
+      ),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.admin }),
   });
 }

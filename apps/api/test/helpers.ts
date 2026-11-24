@@ -26,7 +26,7 @@ export function useApp(overrides: Record<string, string> = {}): TestCtx {
   });
   beforeEach(async () => {
     await ctx.deps.db.execute(
-      sql`TRUNCATE users, sessions, accounts, verifications, consents, deleted_accounts, audit_logs, files, tasks, task_activity CASCADE`,
+      sql`TRUNCATE users, sessions, accounts, verifications, consents, deleted_accounts, audit_logs, files, tasks, task_activity, groups, group_members, group_invites, comments, reports CASCADE`,
     );
     await ctx.deps.redis.flushdb();
   });
@@ -170,4 +170,35 @@ export async function signUpWithPhone(
 /** Skips the 60 s resend cooldown (tests only). */
 export async function skipOtpCooldown(ctx: TestCtx, identifier: string) {
   await ctx.deps.redis.del(`otp:cooldown:${identifier.toLowerCase()}`);
+}
+
+/** Creates a group as `c` and returns it. */
+export async function createGroup(c: Client, name = 'Sharma family', icon: string | null = '🏠') {
+  const res = await c.post('/api/v1/groups', { name, icon });
+  if (res.statusCode !== 201) throw new Error(`create group failed: ${res.statusCode} ${res.body}`);
+  return res.json() as { id: string; name: string; role: string };
+}
+
+/** Admin `admin` invites by link, `joiner` accepts. */
+export async function joinByLink(admin: Client, joiner: Client, groupId: string) {
+  const inv = await admin.post(`/api/v1/groups/${groupId}/invites`, { channel: 'link' });
+  if (inv.statusCode !== 201) throw new Error(`invite failed: ${inv.statusCode} ${inv.body}`);
+  const res = await joiner.post(`/api/v1/invites/${inv.json().code}/accept`);
+  if (res.statusCode !== 201) throw new Error(`join failed: ${res.statusCode} ${res.body}`);
+  return inv.json() as { id: string; code: string };
+}
+
+export async function meId(c: Client): Promise<string> {
+  return (await c.get('/api/v1/me')).json().id;
+}
+
+/** Reads the newest outbox message (email or SMS) to `to`. */
+export async function latestMessage(ctx: TestCtx, to: string) {
+  const dir = ctx.config.OUTBOX_DIR;
+  const names = (await readdir(dir)).sort().reverse();
+  for (const name of names) {
+    const msg = JSON.parse(await readFile(join(dir, name), 'utf8')) as Record<string, string>;
+    if (msg.to === to) return msg;
+  }
+  throw new Error(`no message for ${to}`);
 }
