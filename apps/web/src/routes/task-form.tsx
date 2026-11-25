@@ -187,6 +187,9 @@ function TaskForm({
   const [status, setStatus] = useState<TaskStatus>(task?.status ?? 'todo');
   const [fields, setFields] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
+  // The version this edit started from. A refresh in the background doesn't touch what's being
+  // typed; if someone else saved in between, the server says so and we move this up (below).
+  const [baseVersion, setBaseVersion] = useState(task?.version);
   const create = useCreateTask();
   const update = useUpdateTask();
   const busy = create.isPending || update.isPending;
@@ -242,13 +245,26 @@ function TaskForm({
     }
     try {
       const saved = task
-        ? await update.mutateAsync({ id: task.id, version: task.version, ...body, ...where })
+        ? await update.mutateAsync({
+            id: task.id,
+            version: baseVersion ?? task.version,
+            ...body,
+            ...where,
+          })
         : await create.mutateAsync({ id: crypto.randomUUID(), ...body, ...where });
       onDone(saved);
     } catch (err) {
+      if (err instanceof ApiError && err.code === 'conflict') {
+        // Someone else saved first. Keep what this person typed (nothing is lost) and let them
+        // save again on top of the latest version.
+        const latest = err.details as TaskDto | undefined;
+        if (latest) setBaseVersion(latest.version);
+        setFields({});
+        setError(t('task.conflictEditing'));
+        return;
+      }
       setFields(fieldErrors(err, t));
       setError(errorMessage(err, t));
-      if (err instanceof ApiError && err.code === 'conflict') onDone(err.details as TaskDto);
     }
   }
 
@@ -271,7 +287,10 @@ function TaskForm({
           className="title-input"
           placeholder={t('task.fields.titlePlaceholder')}
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => {
+            setTitle(e.target.value);
+            if (fields.title && e.target.value.trim()) setFields(({ title: _, ...rest }) => rest);
+          }}
           maxLength={LIMITS.taskTitle}
           autoFocus={!task}
           aria-invalid={!!fields.title || undefined}
@@ -497,7 +516,7 @@ export function EditTaskPage() {
         <ErrorState message={t('errors.forbidden')} />
       ) : (
         <TaskForm
-          key={task.data.version}
+          key={task.data.id}
           task={task.data}
           onDone={(saved) => {
             if (saved && saved.version !== task.data.version) toast(t('task.saved'));

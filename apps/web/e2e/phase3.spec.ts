@@ -98,6 +98,10 @@ test('offline: tick done and add a task offline, see "waiting to sync", then it 
   await api(page, 'POST', '/api/v1/tasks', { title: 'Water plants' });
   await page.goto('/tasks');
   await expect(page.getByRole('link', { name: /Water plants/ })).toBeVisible();
+  // Offline screens come from the service worker's cache: wait until it's in charge.
+  await page.waitForFunction(
+    async () => !!(await navigator.serviceWorker.getRegistration())?.active,
+  );
 
   await context.setOffline(true);
   await expect(page.getByText('You’re offline.', { exact: false })).toBeVisible();
@@ -147,4 +151,29 @@ test('simple mode: big home, speak to someone, they get it as a task', async ({
   // Any other page sends a Simple mode user back to Simple mode.
   await ravi.goto('/tasks');
   await expect(ravi).toHaveURL(/\/simple$/);
+});
+
+test('offline: reopening the app with no connection shows the saved tasks, not an error', async ({
+  page,
+  context,
+}) => {
+  await signUpByEmail(page);
+  await api(page, 'POST', '/api/v1/tasks', { title: 'Seen while online' });
+  await page.goto('/tasks');
+  await expect(page.getByRole('link', { name: /Seen while online/ })).toBeVisible();
+  // Let the service worker take over and the list be saved on the device.
+  await page.waitForFunction(
+    async () => !!(await navigator.serviceWorker.getRegistration())?.active,
+  );
+  await page.waitForTimeout(1500);
+
+  await context.setOffline(true);
+  for (const path of ['/tasks', '/today', '/']) {
+    await page.goto(path);
+    await expect(page.getByText('Something went wrong')).toHaveCount(0);
+    await expect(page.getByText('You’re offline.', { exact: false })).toBeVisible();
+  }
+  await page.goto('/tasks');
+  await expect(page.getByRole('link', { name: /Seen while online/ })).toBeVisible();
+  await context.setOffline(false);
 });

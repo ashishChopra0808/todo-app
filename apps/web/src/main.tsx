@@ -4,7 +4,13 @@ import '@fontsource/noto-sans-devanagari/devanagari-400.css';
 import '@fontsource/noto-sans-devanagari/devanagari-600.css';
 import './styles/app.css';
 import './lib/i18n';
-import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
+import {
+  MutationCache,
+  QueryCache,
+  QueryClient,
+  onlineManager,
+  useIsRestoring,
+} from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
@@ -73,6 +79,16 @@ const queryClient: QueryClient = new QueryClient({
 registerOfflineMutations(queryClient);
 const router = createAppRouter(queryClient);
 
+// TanStack Query assumes "online" until the browser fires an offline event, so an app opened
+// with no connection would try the network and land on the error page. Start from the truth.
+if (typeof navigator !== 'undefined' && navigator.onLine === false) onlineManager.setOnline(false);
+
+/** Pages open only once the copy saved on this device is loaded, so they can use it offline. */
+function AppRouter() {
+  const restoring = useIsRestoring();
+  return restoring ? null : <RouterProvider router={router} />;
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <PersistQueryClientProvider
@@ -97,7 +113,7 @@ createRoot(document.getElementById('root')!).render(
       }}
     >
       <ToastProvider>
-        <RouterProvider router={router} />
+        <AppRouter />
       </ToastProvider>
     </PersistQueryClientProvider>
   </StrictMode>,

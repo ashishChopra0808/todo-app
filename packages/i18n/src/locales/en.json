@@ -376,7 +376,8 @@
       "deletedUser": "Deleted account",
       "deleteTitle": "Delete this comment?",
       "deleted": "Comment deleted."
-    }
+    },
+    "conflictEditing": "Someone else changed this task while you were editing. Your changes aren't saved yet: check them and save again."
   },
   "settings": {
     "title": "Settings",

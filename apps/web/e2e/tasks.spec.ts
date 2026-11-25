@@ -117,3 +117,39 @@ test('desktop: tasks open in a side panel; Escape closes it and returns focus', 
   await expect(panel).toBeHidden();
   await expect(link).toBeFocused();
 });
+
+test('editing in two places: the second save keeps its changes and asks to save again', async ({
+  page,
+  context,
+}) => {
+  await signUpByEmail(page);
+  await page.getByRole('link', { name: 'New task' }).first().click();
+  await page.getByLabel('Task title').fill('Plan the trip');
+  await page.getByRole('button', { name: 'Add task' }).click();
+  await expect(page.getByText('Task added.')).toBeVisible();
+  await page.goto('/tasks');
+  await page.getByRole('link', { name: /Plan the trip/ }).click();
+  await page.getByRole('link', { name: 'Edit' }).click();
+  const editUrl = page.url();
+
+  const other = await context.newPage();
+  await other.goto(editUrl);
+  await other.getByLabel('Task title').fill('Plan the trip to Goa');
+  await other.getByRole('button', { name: 'Save changes' }).click();
+  await expect(
+    other.getByRole('heading', { name: 'Plan the trip to Goa', exact: true }),
+  ).toBeVisible();
+
+  await page.getByLabel('Task title').fill('Plan the trip to Kerala');
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(
+    page.getByText('Someone else changed this task while you were editing.', { exact: false }),
+  ).toBeVisible();
+  await expect(page.getByText('Changes saved.')).toHaveCount(0);
+  await expect(page.getByLabel('Task title')).toHaveValue('Plan the trip to Kerala');
+
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Plan the trip to Kerala', exact: true }),
+  ).toBeVisible();
+});

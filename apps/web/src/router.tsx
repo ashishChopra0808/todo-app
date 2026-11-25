@@ -1,4 +1,4 @@
-import type { QueryClient } from '@tanstack/react-query';
+import { onlineManager, type QueryClient } from '@tanstack/react-query';
 import {
   Outlet,
   createRootRouteWithContext,
@@ -84,6 +84,12 @@ const guestRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: 'guest',
   beforeLoad: async ({ context }) => {
+    // Offline the server can't be asked (the question would wait for the connection): go by
+    // the profile saved on this device.
+    if (!onlineManager.isOnline()) {
+      if (context.queryClient.getQueryData(meQuery.queryKey)) throw redirect({ to: '/today' });
+      return;
+    }
     // Ask the server, not the copy saved for offline use: it may be from a session that ended.
     const me = await context.queryClient.fetchQuery({ ...meQuery, staleTime: 0 }).catch(() => null);
     if (me) throw redirect({ to: '/today' });
@@ -98,6 +104,13 @@ const appRoute = createRoute({
   // A loader (not beforeLoad) so the profile check runs in parallel with the screens' own
   // data loaders — the task list doesn't wait for it. The API enforces sign-in on every call anyway.
   loader: async ({ context, location }) => {
+    const saved = context.queryClient.getQueryData(meQuery.queryKey);
+    // Offline: the profile saved on this device is enough to open the app (the server checks
+    // again once the connection is back). Never signed in here → Log in.
+    if (!onlineManager.isOnline()) {
+      if (saved) return;
+      throw redirect({ to: '/sign-in', search: { redirect: location.href } });
+    }
     try {
       await context.queryClient.ensureQueryData(meQuery);
     } catch (err) {
@@ -106,6 +119,8 @@ const appRoute = createRoute({
       if (err instanceof ApiError && (err.status === 401 || err.code === 'not_verified')) {
         throw redirect({ to: '/sign-in', search: { redirect: location.href } });
       }
+      // The connection dropped (or the server is unreachable): carry on with the saved copy.
+      if (err instanceof ApiError && err.code === 'network' && saved) return;
       throw err;
     }
   },
