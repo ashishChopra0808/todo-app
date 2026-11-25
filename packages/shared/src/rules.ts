@@ -49,9 +49,15 @@ export function canEditTask(actor: Actor, task: TaskAccessFacts): boolean {
 
 export const canDeleteTask = canEditTask;
 
-/** Mark done / undo / in progress: anyone who can edit, plus the assignee. */
+/**
+ * Mark done / undo / in progress: anyone who can edit, the assignee, and, for a group task
+ * nobody is assigned to, any member (whoever did the job ticks it; the activity shows who).
+ */
 export function canChangeTaskStatus(actor: Actor, task: TaskAccessFacts): boolean {
-  return canEditTask(actor, task) || (canViewTask(actor, task) && task.assigneeId === actor.id);
+  if (canEditTask(actor, task)) return true;
+  if (!canViewTask(actor, task)) return false;
+  if (task.assigneeId === actor.id) return true;
+  return task.groupId !== null && task.assigneeId === null;
 }
 
 /** Change who a group task is assigned to. Personal tasks always belong to their creator. */

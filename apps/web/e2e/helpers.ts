@@ -50,6 +50,8 @@ export async function signUpByEmail(page: Page, email = uniqueEmail('user'), nam
   await page.getByRole('checkbox').check();
   await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page).toHaveURL(/\/verify/);
+  // The email or phone number never goes in the address (history, error reports, analytics).
+  expect(decodeURIComponent(page.url())).not.toMatch(/target=|@|\+91/);
   await page.getByLabel('6-digit code').fill(await otpFor(email));
   await expect(page).toHaveURL(/\/today/);
   return email;
@@ -63,5 +65,7 @@ export async function signUpAndVerify(page: Page, email: string, name: string) {
   await page.getByRole('checkbox').check();
   await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page).toHaveURL(/\/verify/);
+  // The email or phone number never goes in the address (history, error reports, analytics).
+  expect(decodeURIComponent(page.url())).not.toMatch(/target=|@|\+91/);
   await page.getByLabel('6-digit code').fill(await otpFor(email));
 }

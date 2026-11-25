@@ -17,6 +17,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { z } from 'zod';
 import type { Config } from '../config';
 import type { Db } from '../db/client';
+import { AppError } from '../lib/errors';
 import {
   files,
   notificationPreferences,
@@ -31,6 +32,33 @@ import type { AvatarUrl } from './avatars';
 import type { EmailSender } from './email';
 
 type UserRow = typeof users.$inferSelect;
+
+/**
+ * Push messages go only to the browsers' own push services. Any other address would let a
+ * caller make our server send requests wherever they like (server-side request forgery).
+ */
+const PUSH_HOSTS = [
+  'fcm.googleapis.com', // Chrome, Edge on Android, Samsung Internet, Opera
+  'updates.push.services.mozilla.com', // Firefox
+  '.push.services.mozilla.com',
+  'web.push.apple.com', // Safari / iPhone home-screen apps
+  '.push.apple.com',
+  '.notify.windows.com', // Edge on Windows
+];
+
+export function isPushEndpointAllowed(endpoint: string, extraHosts: string[] = []): boolean {
+  let url: URL;
+  try {
+    url = new URL(endpoint);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'https:' || url.port !== '' || url.username || url.password) return false;
+  const host = url.hostname.toLowerCase();
+  return [...PUSH_HOSTS, ...extraHosts].some((h) =>
+    h.startsWith('.') ? host.endsWith(h) && host.length > h.length : host === h,
+  );
+}
 
 export interface NotifyEvent {
   type: NotificationType;
@@ -53,6 +81,9 @@ export function createNotificationService(d: {
 }) {
   const { db, config } = d;
   const pushEnabled = !!(config.VAPID_PUBLIC_KEY && config.VAPID_PRIVATE_KEY);
+  const extraPushHosts = config.PUSH_EXTRA_HOSTS.split(',')
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean);
   if (pushEnabled)
     webpush.setVapidDetails(
       config.VAPID_SUBJECT,
@@ -108,6 +139,7 @@ export function createNotificationService(d: {
       where: eq(pushSubscriptions.userId, userId),
     });
     for (const s of subs) {
+      if (!isPushEndpointAllowed(s.endpoint, extraPushHosts)) continue; // saved before the check
       try {
         await webpush.sendNotification(
           { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
@@ -343,6 +375,11 @@ export function createNotificationService(d: {
     },
 
     async subscribe(userId: string, sub: PushSubscriptionInput, userAgent: string | null) {
+      if (!isPushEndpointAllowed(sub.endpoint, extraPushHosts)) {
+        throw new AppError('validation_failed', 'Not a browser push service', {
+          fields: { endpoint: 'invalid' },
+        });
+      }
       // An endpoint belongs to one browser: if someone else signs in there, it moves to them.
       await db
         .insert(pushSubscriptions)

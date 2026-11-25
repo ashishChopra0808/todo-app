@@ -157,9 +157,10 @@ const verify = createRoute({
   path: '/verify',
   validateSearch: (
     s: Record<string, unknown>,
-  ): { channel: 'email' | 'phone'; target: string; purpose?: string } => ({
+  ): { channel: 'email' | 'phone'; target?: string; purpose?: string } => ({
     channel: channel(s.channel),
-    target: str(s.target) ?? '',
+    // Old links only: the address is moved to session storage and dropped from the URL.
+    target: str(s.target),
     purpose: str(s.purpose),
   }),
   component: VerifyPage,
@@ -172,9 +173,11 @@ const forgot = createRoute({
 const reset = createRoute({
   getParentRoute: () => guestRoute,
   path: '/reset',
-  validateSearch: (s: Record<string, unknown>) => ({
+  validateSearch: (
+    s: Record<string, unknown>,
+  ): { channel: 'email' | 'phone'; target?: string } => ({
     channel: channel(s.channel),
-    target: str(s.target) ?? '',
+    target: str(s.target),
   }),
   component: ResetPage,
 });

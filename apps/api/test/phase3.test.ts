@@ -16,7 +16,11 @@ import {
 } from './helpers';
 
 const vapid = webpush.generateVAPIDKeys();
-const ctx = useApp({ VAPID_PUBLIC_KEY: vapid.publicKey, VAPID_PRIVATE_KEY: vapid.privateKey });
+const ctx = useApp({
+  VAPID_PUBLIC_KEY: vapid.publicKey,
+  VAPID_PRIVATE_KEY: vapid.privateKey,
+  PUSH_EXTRA_HOSTS: 'push.example.test',
+});
 
 /** A tiny "recording": the right first bytes are all the server checks for the type. */
 const webm = () => Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3]), Buffer.alloc(2000, 7)]);
@@ -115,6 +119,42 @@ describe('voice', () => {
     expect(row!.deletedAt).toBeTruthy();
   });
 
+  it('"download my data" includes the person\'s recordings with download links', async () => {
+    const { asha, ravi, g } = await pair();
+    const a1 = (await upload(asha, 'task_audio')).json();
+    const t = (
+      await asha.post('/api/v1/tasks', { title: 'Voice task', audioFileId: a1.id, groupId: g.id })
+    ).json();
+    const a2 = (await upload(ravi, 'comment_audio')).json();
+    await ravi.post(`/api/v1/tasks/${t.id}/comments`, {
+      id: crypto.randomUUID(),
+      audioFileId: a2.id,
+    });
+    await upload(asha, 'task_audio'); // never attached: not exported
+    const mine = (await asha.get('/api/v1/me/export')).json();
+    expect(mine.voiceRecordings).toHaveLength(1);
+    expect(mine.voiceRecordings[0]).toMatchObject({
+      id: a1.id,
+      kind: 'voice_task',
+      taskId: t.id,
+      durationSeconds: 4,
+      type: 'audio/webm',
+    });
+    expect(mine.voiceRecordings[0].downloadUrl).toMatch(/^https?:\/\//);
+    const audio = await asha.get(
+      new URL(mine.voiceRecordings[0].downloadUrl).pathname +
+        new URL(mine.voiceRecordings[0].downloadUrl).search,
+    );
+    expect(audio.statusCode).toBe(200);
+    const theirs = (await ravi.get('/api/v1/me/export')).json();
+    expect(theirs.voiceRecordings).toHaveLength(1);
+    expect(theirs.voiceRecordings[0]).toMatchObject({
+      id: a2.id,
+      kind: 'voice_reply',
+      taskId: t.id,
+    });
+  });
+
   it('unattached recordings are cleaned up after a day', async () => {
     const asha = await signUpWithEmail(ctx);
     const rec = (await upload(asha, 'task_audio')).json();
@@ -207,6 +247,32 @@ describe('notifications', () => {
     );
     await ravi.post('/api/v1/notifications/read-all');
     expect((await ravi.get('/api/v1/notifications/unread-count')).json()).toEqual({ count: 0 });
+  });
+
+  it("only accepts the browsers' own push services as endpoints", async () => {
+    const asha = await signUpWithEmail(ctx);
+    const keys = { p256dh: 'BPk'.padEnd(80, 'x'), auth: 'auth-secret-1' };
+    for (const endpoint of [
+      'https://169.254.169.254/latest/meta-data',
+      'https://localhost/x',
+      'https://fcm.googleapis.com.evil.test/x',
+      'https://evil.test/fcm.googleapis.com',
+      'https://fcm.googleapis.com:8443/x',
+      'https://user:pw@fcm.googleapis.com/x',
+      'https://push.apple.com/x',
+    ]) {
+      const res = await asha.post('/api/v1/push-subscriptions', { endpoint, keys });
+      expect(res.statusCode, endpoint).toBe(400);
+    }
+    for (const endpoint of [
+      'https://fcm.googleapis.com/fcm/send/abc',
+      'https://updates.push.services.mozilla.com/wpush/v2/abc',
+      'https://web.push.apple.com/abc',
+      'https://wns2-pn1p.notify.windows.com/w/?token=abc',
+    ]) {
+      const res = await asha.post('/api/v1/push-subscriptions', { endpoint, keys });
+      expect(res.statusCode, endpoint).toBe(204);
+    }
   });
 
   it('stores push subscriptions per browser and moves them on sign-in by someone else', async () => {

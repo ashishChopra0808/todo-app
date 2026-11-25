@@ -26,6 +26,17 @@ describe('task rules', () => {
     expect(canEditTask(admin, task)).toBe(true);
     expect(canViewTask(outsider, task)).toBe(false);
   });
+
+  it('group tasks nobody is assigned to: any member can tick them, but not edit them', () => {
+    const member = { id: 'me', groupRoles: { g1: 'member' as const } };
+    const outsider = { id: 'x', groupRoles: {} };
+    const unassigned = { createdBy: 'other', assigneeId: null, groupId: 'g1' };
+    expect(canChangeTaskStatus(member, unassigned)).toBe(true);
+    expect(canEditTask(member, unassigned)).toBe(false);
+    expect(canChangeTaskStatus(outsider, unassigned)).toBe(false);
+    const someoneElse = { createdBy: 'other', assigneeId: 'third', groupId: 'g1' };
+    expect(canChangeTaskStatus(member, someoneElse)).toBe(false);
+  });
 });
 
 import {

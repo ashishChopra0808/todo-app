@@ -1,6 +1,12 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { useState, type FormEvent, type ReactNode } from 'react';
+import {
+  forgetAuthTarget,
+  readAuthTarget,
+  rememberAuthTarget,
+  type AuthTarget,
+} from '../lib/auth-target';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { OTP, normalizePhone } from '@todo/shared';
 import { ApiError } from '../api/client';
@@ -202,7 +208,8 @@ export function SignInPage() {
       if (err instanceof ApiError && err.code === 'not_verified') {
         const target = channel === 'email' ? idNow.toLowerCase() : (normalizePhone(idNow) ?? idNow);
         await authApi.sendVerification(channel, target).catch(() => undefined);
-        await navigate({ to: '/verify', search: { channel, target, purpose: 'signin' } });
+        rememberAuthTarget({ channel, target });
+        await navigate({ to: '/verify', search: { channel, purpose: 'signin' } });
         return;
       }
       if (err instanceof ApiError && err.code === 'account_suspended') {
@@ -312,13 +319,12 @@ export function SignUpPage() {
       if (channel === 'email') {
         const email = id.trim().toLowerCase();
         await authApi.signUpEmail({ ...common, email });
-        await navigate({ to: '/verify', search: { channel, target: email, purpose: 'signup' } });
+        rememberAuthTarget({ channel, target: email });
+        await navigate({ to: '/verify', search: { channel, purpose: 'signup' } });
       } else {
         const res = await authApi.signUpPhone({ ...common, phoneNumber: id });
-        await navigate({
-          to: '/verify',
-          search: { channel, target: res.phoneNumber, purpose: 'signup' },
-        });
+        rememberAuthTarget({ channel, target: res.phoneNumber });
+        await navigate({ to: '/verify', search: { channel, purpose: 'signup' } });
       }
     } catch (err) {
       setFields(fieldErrors(err, t));
@@ -409,15 +415,41 @@ export function SignUpPage() {
   );
 }
 
+/**
+ * The address a code went to, for the code screens. Comes from session storage; an old link
+ * with it in the URL is moved there and the URL cleaned. Nothing at all → back to `fallback`.
+ */
+function useAuthTargetFromPage(fallback: '/sign-in' | '/forgot'): AuthTarget {
+  const navigate = useNavigate();
+  const search = useSearch({ strict: false }) as {
+    channel?: Channel;
+    target?: string;
+    purpose?: string;
+  };
+  const [found] = useState<AuthTarget | null>(() => {
+    if (search.target) {
+      const t = { channel: search.channel ?? 'email', target: search.target } as AuthTarget;
+      rememberAuthTarget(t);
+      return t;
+    }
+    return readAuthTarget();
+  });
+  useEffect(() => {
+    if (!found) {
+      void navigate({ to: fallback, replace: true });
+    } else if (search.target) {
+      const { target: _drop, ...rest } = search;
+      void navigate({ to: '.', search: rest as never, replace: true });
+    }
+  }, [found, search, navigate, fallback]);
+  return found ?? { channel: search.channel ?? 'email', target: '' };
+}
+
 export function VerifyPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { channel, target } = useSearch({ strict: false }) as {
-    channel: Channel;
-    target: string;
-    purpose?: string;
-  };
+  const { channel, target } = useAuthTargetFromPage('/sign-in');
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -431,6 +463,7 @@ export function VerifyPage() {
     setError(null);
     try {
       await authApi.verify(channel, target, value);
+      forgetAuthTarget();
       await qc.invalidateQueries({ queryKey: keys.me });
       await navigate({ to: '/today' });
     } catch (err) {
@@ -548,7 +581,8 @@ export function ForgotPage() {
     setError(null);
     try {
       await authApi.requestReset(channel, target);
-      await navigate({ to: '/reset', search: { channel, target } });
+      rememberAuthTarget({ channel, target });
+      await navigate({ to: '/reset', search: { channel } });
     } catch (err) {
       setError(errorMessage(err, t));
     } finally {
@@ -588,7 +622,7 @@ export function ForgotPage() {
 export function ResetPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { channel, target } = useSearch({ strict: false }) as { channel: Channel; target: string };
+  const { channel, target } = useAuthTargetFromPage('/forgot');
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -607,6 +641,7 @@ export function ResetPage() {
     setFields({});
     try {
       await authApi.reset(channel, target, code, password);
+      forgetAuthTarget();
       await navigate({ to: '/sign-in', search: { reset: '1' } });
     } catch (err) {
       setError(errorMessage(err, t));

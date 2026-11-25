@@ -10,10 +10,11 @@ import { Spinner } from '../components/States';
 import { browserTimeZone } from '../lib/auth-api';
 import { currentLocale } from '../lib/i18n';
 
-const SECTIONS = ['s1', 's2', 's3', 's4', 's5', 's6'];
+/** Sections s1, s2, … for as many as the page's text has (the privacy policy has more). */
+const MAX_SECTIONS = 12;
 
 export function LegalPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { page } = useParams({ strict: false }) as { page: 'terms' | 'privacy' | 'grievance' };
   const known = ['terms', 'privacy', 'grievance'].includes(page);
   if (!known) return <NotFoundPage />;
@@ -48,12 +49,14 @@ export function LegalPage() {
           <p className="muted">{t('legal.grievance.include')}</p>
         </>
       ) : (
-        SECTIONS.map((s) => (
-          <section key={s}>
-            <h2>{t(`legal.${page}.${s}h`)}</h2>
-            <p>{t(`legal.${page}.${s}`)}</p>
-          </section>
-        ))
+        Array.from({ length: MAX_SECTIONS }, (_, i) => `s${i + 1}`)
+          .filter((s) => i18n.exists(`legal.${page}.${s}h`))
+          .map((s) => (
+            <section key={s}>
+              <h2>{t(`legal.${page}.${s}h`)}</h2>
+              <p>{t(`legal.${page}.${s}`)}</p>
+            </section>
+          ))
       )}
     </main>
   );

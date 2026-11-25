@@ -61,6 +61,10 @@ export function meRoutes(app: FastifyInstance, deps: AppDeps) {
     { ...pre, config: { rateLimit: { max: 5, timeWindow: '1 hour' } } },
     async (req, reply) => {
       const data = await deps.accounts.exportData(req.user!);
+      // The file is used outside the app, so every link in it is a full address.
+      for (const r of data.voiceRecordings)
+        if (r.downloadUrl.startsWith('/'))
+          r.downloadUrl = `${deps.config.APP_ORIGIN}${r.downloadUrl}`;
       await deps.audit('data_export', { actorUserId: req.user!.id, ...meta(req) });
       const date = new Date().toISOString().slice(0, 10);
       return reply
