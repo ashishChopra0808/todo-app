@@ -355,6 +355,10 @@ export function useGroup(id: string) {
     queryKey: keys.group(id),
     queryFn: () => get<GroupDto>(`/api/v1/groups/${id}`),
     retry: (n, e) => !(e instanceof ApiError && e.status === 404) && n < 2,
+    // Who's in the group changes from other phones (someone joins by link): always re-check
+    // when the screen opens or the app comes back to the front.
+    staleTime: 0,
+    refetchOnWindowFocus: 'always',
   });
 }
 
@@ -363,7 +367,8 @@ export function useMembers(id: string | null | undefined) {
     queryKey: keys.members(id ?? ''),
     queryFn: () => get<GroupMemberDto[]>(`/api/v1/groups/${id}/members`),
     enabled: !!id,
-    staleTime: 30_000,
+    staleTime: 0, // see useGroup
+    refetchOnWindowFocus: 'always',
   });
 }
 

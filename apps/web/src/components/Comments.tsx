@@ -1,4 +1,5 @@
 import { useState, type FormEvent, type KeyboardEvent } from 'react';
+import { LinkedText } from './LinkedText';
 import { useTranslation } from 'react-i18next';
 import { LIMITS, type CommentDto, type TaskDto } from '@todo/shared';
 import { useOnline, usePendingSync } from '../api/offline';
@@ -109,7 +110,11 @@ function CommentItem({
           <p className="comment__text comment__text--removed">{t('task.comments.removed')}</p>
         ) : (
           <>
-            {c.body && <p className="comment__text">{c.body}</p>}
+            {c.body && (
+              <p className="comment__text">
+                <LinkedText text={c.body} />
+              </p>
+            )}
             {c.audio && (
               <AudioPlayer
                 src={c.audio.url}

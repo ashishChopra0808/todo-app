@@ -73,3 +73,28 @@ test('signed-out users are sent to sign in', async ({ page }) => {
   await page.goto('/tasks');
   await expect(page).toHaveURL(/\/sign-in\?redirect=/);
 });
+
+test('sign-in: an empty submit marks each empty box; short legal addresses work', async ({
+  page,
+}) => {
+  await page.goto('/sign-in');
+  await page.getByRole('button', { name: 'Log in' }).click();
+  await expect(page.getByRole('textbox', { name: 'Email' })).toHaveAttribute(
+    'aria-invalid',
+    'true',
+  );
+  await expect(page.getByLabel('Password', { exact: true })).toHaveAttribute(
+    'aria-invalid',
+    'true',
+  );
+  await expect(page.getByRole('textbox', { name: 'Email' })).toBeFocused();
+  await page.getByRole('textbox', { name: 'Email' }).fill('a@b.co');
+  await expect(page.getByRole('textbox', { name: 'Email' })).not.toHaveAttribute(
+    'aria-invalid',
+    'true',
+  );
+
+  await page.goto('/privacy');
+  await expect(page).toHaveURL(/\/legal\/privacy$/);
+  await expect(page.getByRole('heading', { name: 'Who can see what' })).toBeVisible();
+});

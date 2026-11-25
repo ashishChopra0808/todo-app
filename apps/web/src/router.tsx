@@ -192,6 +192,19 @@ const legal = createRoute({
   component: LegalPage,
 });
 
+// Short addresses people (and app stores) expect: /privacy, /terms, /grievance.
+const legalShort = (page: 'privacy' | 'terms' | 'grievance') =>
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: `/${page}`,
+    beforeLoad: () => {
+      throw redirect({ to: '/legal/$page', params: { page }, replace: true });
+    },
+  });
+const privacyShort = legalShort('privacy');
+const termsShort = legalShort('terms');
+const grievanceShort = legalShort('grievance');
+
 const today = createRoute({
   getParentRoute: () => appRoute,
   path: '/today',
@@ -321,6 +334,9 @@ const welcome = createRoute({
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
+  privacyShort,
+  termsShort,
+  grievanceShort,
   guestRoute.addChildren([signIn, signUp, verify, forgot, reset]),
   appRoute.addChildren([
     today,

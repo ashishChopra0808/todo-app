@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import { AUDIO } from '@todo/shared';
 import type { Recording } from '../api/queries';
 import { Icon } from './Icon';
@@ -213,13 +214,22 @@ export function AudioPlayer({
   label: string;
   big?: boolean;
 }) {
+  const qc = useQueryClient();
+  // Playback links are private and expire (15 minutes). A screen left open longer, or shown
+  // from the offline copy, gets a fresh link by re-loading what's on screen (once per link).
+  const refreshed = useRef<string | null>(null);
+  const onError = () => {
+    if (refreshed.current === src || !navigator.onLine) return;
+    refreshed.current = src;
+    void qc.invalidateQueries({ refetchType: 'active' });
+  };
   return (
     <figure className={`audio${big ? ' audio--big' : ''}`}>
       <figcaption className="meta">{label}</figcaption>
-      {/* No captions yet: speech-to-text was left out of the MVP (decision of 18 Nov). The
+      {/* No captions: speech-to-text is not part of the MVP (owner's decision, 25 Nov). The
           transcript column is ready; when it's filled, it goes here as a <track>/text. */}
       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-      <audio controls preload="metadata" src={src} aria-label={label} />
+      <audio controls preload="metadata" src={src} aria-label={label} onError={onError} />
     </figure>
   );
 }

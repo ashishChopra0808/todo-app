@@ -1002,6 +1002,13 @@ textarea.input {
   line-height: 20px;
   font-weight: var(--font-task-title-weight);
   overflow-wrap: anywhere;
+  /* Long titles: 2 lines in lists; the full title is on the task page. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
 }
 .task-row[data-done='true'] .task-row__title {
   text-decoration: line-through;
@@ -1082,9 +1089,22 @@ textarea.input {
   gap: var(--space-2);
   overflow-x: auto;
   padding-block-end: 2px;
+  padding-inline-end: var(--space-6);
+  scrollbar-width: none;
+  /* Fade at the far edge says "there's more, swipe". */
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+}
+[dir='rtl'] .tabs {
+  mask-image: linear-gradient(to left, #000 calc(100% - 32px), transparent);
+}
+@media (min-width: 720px) {
+  .tabs {
+    mask-image: none;
+    padding-inline-end: 0;
+  }
 }
 .tab {
-  min-block-size: 40px;
+  min-block-size: 44px;
   padding: 0 var(--space-4);
   border-radius: 20px;
   border: 1px solid var(--color-border);
@@ -1164,7 +1184,8 @@ textarea.input {
 }
 .title-input {
   border: 0;
-  padding: 4px 0;
+  padding: 6px 0;
+  min-block-size: 48px;
   font-size: 24px;
   line-height: 32px;
   font-weight: 600;
@@ -1925,9 +1946,17 @@ textarea.input {
 .prefs__check {
   inline-size: 24px;
   block-size: 24px;
+  margin: 0;
   accent-color: var(--color-accent);
-  /* 44px touch target around a 24px box */
-  margin: 10px;
+}
+/* 48px touch target around the 24px box: the label is the target, not the margin */
+.prefs__hit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 48px;
+  min-block-size: 48px;
+  cursor: pointer;
 }
 
 /* ---------- Simple mode (design: 18–20px text, 72–84px main buttons) ---------- */
