@@ -174,6 +174,7 @@ export function SignInPage() {
   const [channel, setChannel] = useState<Channel>('email');
   const [id, setId] = useState('');
   const [password, setPassword] = useState('');
+  const [fields, setFields] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(
     search.error === 'google' ? t('auth.callback.failed') : null,
@@ -188,8 +189,19 @@ export function SignInPage() {
     const passwordNow = String(form.get('password') ?? password) || password;
     if (idNow !== id) setId(idNow);
     if (passwordNow !== password) setPassword(passwordNow);
-    if (!idNow || !passwordNow) {
-      setError(t('errors.field.required'));
+    const missing: Record<string, string> = {};
+    if (!idNow) missing.id = t('errors.field.required');
+    if (!passwordNow) missing.password = t('errors.field.required');
+    setFields(missing);
+    if (Object.keys(missing).length) {
+      setError(null);
+      // Take the person to the first empty box.
+      const first = e.currentTarget.querySelector<HTMLInputElement>(
+        missing.id
+          ? `input[name="${channel === 'email' ? 'email' : 'phone'}"]`
+          : 'input[name="password"]',
+      );
+      first?.focus();
       return;
     }
     setBusy(true);
@@ -252,9 +264,18 @@ export function SignInPage() {
             setChannel(c);
             setId('');
             setError(null);
+            setFields({});
           }}
         />
-        <IdentifierField channel={channel} value={id} onChange={setId} />
+        <IdentifierField
+          channel={channel}
+          value={id}
+          onChange={(v) => {
+            setId(v);
+            if (fields.id && v.trim()) setFields(({ id: _, ...rest }) => rest);
+          }}
+          error={fields.id}
+        />
         <div className="stack">
           <PasswordField
             label={t('auth.fields.password')}
@@ -262,7 +283,11 @@ export function SignInPage() {
             autoComplete="current-password"
             required
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            error={fields.password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              if (fields.password && e.target.value) setFields(({ password: _, ...rest }) => rest);
+            }}
           />
           <Link
             to="/forgot"

@@ -12,7 +12,7 @@
     },
     "lockout": {
       "subject": "Your ToDo account was locked",
-      "text": "Someone tried to sign in to your ToDo account with the wrong password many times, so we've locked it for {{minutes}} minutes.\n\nIf this was you, wait and try again. If it wasn't, reset your password now; that also unlocks the account straight away:\n{{url}}"
+      "text": "Someone tried to log in to your ToDo account with the wrong password many times, so we've locked it for {{minutes}} minutes.\n\nIf this was you, wait and try again. If it wasn't, reset your password now; that also unlocks the account straight away:\n{{url}}"
     }
   },
   "sms": {
@@ -45,10 +45,11 @@
     "remove": "Remove",
     "add": "Add",
     "confirm": "Confirm",
-    "signOut": "Sign out",
+    "signOut": "Log out",
     "newVersion": "A new version of ToDo is ready.",
     "reload": "Reload",
-    "offline": "You're offline. Changes can't be saved right now."
+    "offline": "You're offline. Changes can't be saved right now.",
+    "view": "View"
   },
   "nav": {
     "main": "Main",
@@ -88,7 +89,7 @@
       "consent": "I agree to the <terms>Terms of use</terms> and the <privacy>Privacy policy</privacy>."
     },
     "method": {
-      "label": "Sign in with",
+      "label": "Log in with",
       "email": "Email",
       "phone": "Phone"
     },
@@ -436,7 +437,7 @@
       "signOutAll": "Log out from all devices",
       "signOutAllTitle": "Log out everywhere?",
       "signOutAllBody": "You'll be logged out on every device, including this one.",
-      "google": "Signed in with Google"
+      "google": "Logged in with Google"
     },
     "privacy": {
       "title": "Your data",
@@ -870,7 +871,8 @@
     "hearTask": "A task for you: {{task}}",
     "hearPeople": "Your people: {{names}}",
     "hearConversation": "{{count}} messages with {{name}}. Press Speak to send a voice message.",
-    "hearTaskFrom": "A task from {{name}}: {{task}}. Press Yes, done when it is done, or Reply."
+    "hearTaskFrom": "A task from {{name}}: {{task}}. Press Yes, done when it is done, or Reply.",
+    "messageMine": "Your message {{duration}}"
   },
   "staging": {
     "smsCode": "Test version: text messages aren't sent to phones yet. This code went to the team's email inbox instead.",

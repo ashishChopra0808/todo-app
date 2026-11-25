@@ -1,5 +1,6 @@
 import { onlineManager } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
+import { useSafeBack } from '../lib/nav';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -469,8 +470,7 @@ export function NewTaskPage() {
   const navigate = useNavigate();
   const toast = useToast();
   const search = useSearch({ strict: false }) as { group?: string };
-  const back = () =>
-    window.history.length > 1 ? window.history.back() : void navigate({ to: '/today' });
+  const back = useSafeBack();
   return (
     <main id="main" className="page" style={{ paddingBlockEnd: 32 }}>
       <FormHeader title={t('task.new')} cancelTo={back} />
@@ -484,8 +484,21 @@ export function NewTaskPage() {
       </Link>
       <TaskForm
         initialGroup={search.group ?? null}
-        onDone={() => {
-          toast(t('task.created'));
+        onDone={(created) => {
+          toast(
+            t('task.created'),
+            created
+              ? {
+                  action: {
+                    label: t('common.view'),
+                    onClick: () =>
+                      void (window.matchMedia(WIDE_QUERY).matches
+                        ? navigate({ to: '/tasks', search: { task: created.id } })
+                        : navigate({ to: '/tasks/$id', params: { id: created.id } })),
+                  },
+                }
+              : {},
+          );
           back();
         }}
       />
@@ -534,7 +547,6 @@ export function EditTaskPage() {
 /** Voice task: record → check → title (pre-filled), list and person → save. */
 export function VoiceTaskPage() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const toast = useToast();
   const online = useOnline();
   const me = useMe();
@@ -548,8 +560,7 @@ export function VoiceTaskPage() {
   const [assigneeId, setAssigneeId] = useState<string | null>(meId || null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const back = () =>
-    window.history.length > 1 ? window.history.back() : void navigate({ to: '/today' });
+  const back = useSafeBack();
 
   async function save(e: FormEvent) {
     e.preventDefault();

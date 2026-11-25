@@ -106,18 +106,21 @@ export function NotificationSettings() {
               <th scope="row">{t(`notifySettings.types.${type}`)}</th>
               {channels.map((channel) => (
                 <td key={channel}>
-                  <input
-                    type="checkbox"
-                    className="prefs__check"
-                    checked={enabled(type, channel)}
-                    aria-label={`${t(`notifySettings.types.${type}`)}: ${t(`notifySettings.channels.${channel}`)}`}
-                    onChange={(e) =>
-                      set.mutate(
-                        { type, channel, enabled: e.target.checked },
-                        { onError: (err) => toast(errorMessage(err, t), { tone: 'error' }) },
-                      )
-                    }
-                  />
+                  {/* The label fills the cell, so the whole 44px area toggles the box. */}
+                  <label className="prefs__hit">
+                    <input
+                      type="checkbox"
+                      className="prefs__check"
+                      checked={enabled(type, channel)}
+                      aria-label={`${t(`notifySettings.types.${type}`)}: ${t(`notifySettings.channels.${channel}`)}`}
+                      onChange={(e) =>
+                        set.mutate(
+                          { type, channel, enabled: e.target.checked },
+                          { onError: (err) => toast(errorMessage(err, t), { tone: 'error' }) },
+                        )
+                      }
+                    />
+                  </label>
                 </td>
               ))}
             </tr>

@@ -1,4 +1,5 @@
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
+import { LinkedText } from '../components/LinkedText';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ActivityDto, TaskDto, TaskStatus } from '@todo/shared';
@@ -307,7 +308,9 @@ export function TaskDetail({ id, variant, onClose, onDeleted }: DetailProps) {
           <h3 id={`desc-${data.id}`} className="section-title">
             {t('task.fields.description')}
           </h3>
-          <p className="description">{data.description}</p>
+          <p className="description">
+            <LinkedText text={data.description} />
+          </p>
         </section>
       )}
 

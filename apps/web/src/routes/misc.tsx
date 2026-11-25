@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
+import { useSafeBack } from '../lib/nav';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { patch } from '../api/client';
@@ -15,6 +16,7 @@ const MAX_SECTIONS = 12;
 
 export function LegalPage() {
   const { t, i18n } = useTranslation();
+  const back = useSafeBack();
   const { page } = useParams({ strict: false }) as { page: 'terms' | 'privacy' | 'grievance' };
   const known = ['terms', 'privacy', 'grievance'].includes(page);
   if (!known) return <NotFoundPage />;
@@ -25,7 +27,7 @@ export function LegalPage() {
           type="button"
           className="btn btn--ghost btn--small"
           style={{ paddingInline: 4 }}
-          onClick={() => window.history.back()}
+          onClick={back}
         >
           <Icon name="chevronLeft" size={20} />
           {t('common.back')}

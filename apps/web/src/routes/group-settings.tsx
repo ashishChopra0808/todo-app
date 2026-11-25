@@ -149,7 +149,9 @@ function MembersSection({ g, meId }: { g: GroupDto; meId: string }) {
                   </span>
                 </span>
                 <span className="row">
-                  {admin && (
+                  {/* Not on your own row: stepping down by mistake can leave a group without
+                      an admin to undo it. */}
+                  {admin && !self && (
                     <button
                       type="button"
                       className="btn btn--ghost btn--small"

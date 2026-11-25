@@ -9,6 +9,7 @@ import {
   LOGIN_LOCKOUT,
   OTP,
   canonicalTimeZone,
+  cleanLine,
   isPlaceholderEmail,
   isValidTimeZone,
   normalizePhone,
@@ -536,8 +537,7 @@ export function createAuth(deps: AuthDeps) {
                 ),
               );
           }
-          if (typeof body.name === 'string')
-            body.name = body.name.replace(/\s+/g, ' ').trim().slice(0, 80);
+          if (typeof body.name === 'string') body.name = cleanLine(body.name).slice(0, 80);
         }
 
         if (SIGN_IN_PATHS.has(ctx.path)) {

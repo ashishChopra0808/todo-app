@@ -124,10 +124,16 @@ function ItemCard({ item, tz }: { item: SimpleItemDto; tz: string }) {
         <AudioPlayer
           big
           src={item.audio.url}
-          label={t('simple.messageFrom', {
-            name: who,
-            duration: item.audio.durationMs ? formatDuration(item.audio.durationMs) : '',
-          })}
+          label={
+            item.fromMe
+              ? t('simple.messageMine', {
+                  duration: item.audio.durationMs ? formatDuration(item.audio.durationMs) : '',
+                })
+              : t('simple.messageFrom', {
+                  name: who,
+                  duration: item.audio.durationMs ? formatDuration(item.audio.durationMs) : '',
+                })
+          }
         />
       ) : null}
       {item.kind === 'task' && item.title && <p className="simple__msg-text">{item.title}</p>}

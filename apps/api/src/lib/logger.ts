@@ -3,6 +3,13 @@ import { randomUUID } from 'node:crypto';
 import type { Config } from '../config';
 
 const SENSITIVE_QUERY = /([?&](?:code|state|token|otp|password|callbackURL)=)[^&]*/gi;
+/** Secrets that sit in the path: invite codes, and signed file links (local storage). */
+const SENSITIVE_PATH = /(\/api\/v1\/(?:invites|files\/local)\/)[^/?#]+/gi;
+
+/** The request address as it may be logged: no codes, tokens or invite codes. */
+export function safeUrl(url: string): string {
+  return url.replace(SENSITIVE_PATH, '$1[redacted]').replace(SENSITIVE_QUERY, '$1[redacted]');
+}
 
 /** Paths redacted from every log line. Bodies are never logged. */
 export const REDACT_PATHS = [
@@ -31,7 +38,7 @@ export function loggerOptions(config: Config): FastifyServerOptions['logger'] {
       req(req) {
         return {
           method: req.method,
-          url: String(req.url).replace(SENSITIVE_QUERY, '$1[redacted]'),
+          url: safeUrl(String(req.url)),
           requestId: req.id,
           userAgent: req.headers['user-agent'],
         };

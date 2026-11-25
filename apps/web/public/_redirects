@@ -1,0 +1,4 @@
+# Short addresses for the legal pages (answered by Cloudflare before the app loads).
+/privacy    /legal/privacy    301
+/terms      /legal/terms      301
+/grievance  /legal/grievance  301
