@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
 import sharp, { type Metadata } from 'sharp';
 import {
   RETENTION_DAYS,
@@ -144,6 +144,52 @@ export function createAccountService(
 
     /** DPDP: everything we hold about the user that they can see in the app, as JSON. */
     async exportData(user: UserRow) {
+      /**
+       * Voice recordings the person made, with a private download link for each. The links
+       * work for 7 days (the longest storage allows), long enough to save them.
+       */
+      const exportRecordings = async (userId: string) => {
+        const rows = await db.query.files.findMany({
+          where: and(
+            eq(files.ownerId, userId),
+            inArray(files.kind, ['task_audio', 'comment_audio']),
+            eq(files.status, 'ready'),
+            isNull(files.deletedAt),
+          ),
+          orderBy: asc(files.createdAt),
+        });
+        if (!rows.length) return [];
+        const ids = rows.map((r) => r.id);
+        const onTasks = await db
+          .select({ fileId: tasks.audioFileId, taskId: tasks.id })
+          .from(tasks)
+          .where(and(inArray(tasks.audioFileId, ids), isNull(tasks.deletedAt)));
+        const onComments = await db
+          .select({ fileId: comments.audioFileId, commentId: comments.id, taskId: comments.taskId })
+          .from(comments)
+          .where(and(inArray(comments.audioFileId, ids), isNull(comments.deletedAt)));
+        const LINK_SECONDS = 7 * 24 * 60 * 60;
+        return Promise.all(
+          rows.map(async (f) => {
+            const t = onTasks.find((x) => x.fileId === f.id);
+            const c = onComments.find((x) => x.fileId === f.id);
+            // Only recordings still attached to something the person can see.
+            if (!t && !c) return null;
+            return {
+              id: f.id,
+              kind: f.kind === 'task_audio' ? 'voice_task' : 'voice_reply',
+              taskId: t?.taskId ?? c?.taskId ?? null,
+              commentId: c?.commentId ?? null,
+              durationSeconds: f.durationMs ? Math.round(f.durationMs / 1000) : null,
+              type: f.mimeType,
+              createdAt: f.createdAt,
+              downloadUrl: await storage.signedUrl(f.storageKey, LINK_SECONDS),
+              downloadUrlExpiresAt: new Date(Date.now() + LINK_SECONDS * 1000).toISOString(),
+            };
+          }),
+        ).then((list) => list.filter((x) => x !== null));
+      };
+
       const me = await this.me(user);
       const myTasks = await db.query.tasks.findMany({
         where: and(eq(tasks.createdBy, user.id), isNull(tasks.deletedAt), isNull(tasks.removedAt)),
@@ -157,7 +203,7 @@ export function createAccountService(
         : [];
       return {
         exportedAt: new Date().toISOString(),
-        format: 'todo-export-v2',
+        format: 'todo-export-v3',
         profile: { ...me, avatarUrl: undefined },
         consents: await db.query.consents.findMany({
           where: eq(consents.userId, user.id),
@@ -215,6 +261,7 @@ export function createAccountService(
           createdAt: c.createdAt,
           editedAt: c.editedAt,
         })),
+        voiceRecordings: await exportRecordings(user.id),
         notificationSettings: (
           await db.query.notificationPreferences.findMany({
             where: eq(notificationPreferences.userId, user.id),

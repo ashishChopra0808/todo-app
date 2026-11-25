@@ -60,7 +60,18 @@ export const OTP = {
   maxSendsPerHour: 5,
 } as const;
 
-export const LOGIN_LOCKOUT = { maxFailures: 10, lockMinutes: 15 } as const;
+/**
+ * Wrong passwords lock sign-in for that account *from that network* (IP) after `maxFailures`,
+ * so a stranger can't lock someone else out. Spread over many networks, `accountMaxFailures`
+ * within `accountWindowMinutes` locks the account itself; the owner is emailed and a password
+ * reset unlocks it at once.
+ */
+export const LOGIN_LOCKOUT = {
+  maxFailures: 10,
+  lockMinutes: 15,
+  accountMaxFailures: 30,
+  accountWindowMinutes: 60,
+} as const;
 
 export const NOTIFICATION_TYPES = [
   'task_assigned',

@@ -111,6 +111,16 @@ export async function latestOtp(ctx: TestCtx, to: string): Promise<string> {
   throw new Error(`no OTP found for ${to}`);
 }
 
+/** Every message in the file outbox (emails and texts), oldest first. */
+export async function outboxMessages(
+  ctx: TestCtx,
+): Promise<{ to: string; subject?: string; text: string; purpose?: string }[]> {
+  const names = (await readdir(ctx.config.OUTBOX_DIR)).sort();
+  return Promise.all(
+    names.map(async (n) => JSON.parse(await readFile(join(ctx.config.OUTBOX_DIR, n), 'utf8'))),
+  );
+}
+
 export async function outboxCount(ctx: TestCtx, to: string): Promise<number> {
   const names = await readdir(ctx.config.OUTBOX_DIR);
   let n = 0;

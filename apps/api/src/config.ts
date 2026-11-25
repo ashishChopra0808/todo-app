@@ -57,6 +57,11 @@ const schema = z
     VAPID_PRIVATE_KEY: z.string().optional(),
     VAPID_SUBJECT: z.string().default('mailto:support@todo.invalid'),
     /**
+     * Extra push-service hosts to accept, comma-separated (tests only). The real services
+     * (Google, Mozilla, Apple, Microsoft) are always allowed; nothing else ever is.
+     */
+    PUSH_EXTRA_HOSTS: z.string().default(''),
+    /**
      * Comma-separated emails of the app owner(s). Only these verified accounts can open the
      * review page (/admin) and act on reports. Empty = nobody.
      */

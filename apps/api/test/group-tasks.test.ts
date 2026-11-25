@@ -133,6 +133,21 @@ describe('group tasks', () => {
     expect((await meera.get(`/api/v1/tasks/${t.id}`)).statusCode).toBe(404);
   });
 
+  it('a group task nobody is assigned to can be ticked off by any member', async () => {
+    const { ravi, meera, g } = await family();
+    const t = await create(ravi, { title: 'Buy milk', groupId: g.id });
+    const asMeera = (await meera.get(`/api/v1/tasks/${t.id}`)).json();
+    expect(asMeera.permissions).toMatchObject({ edit: false, changeStatus: true });
+    expect(
+      (await meera.patch(`/api/v1/tasks/${t.id}`, { version: 1, title: 'Buy bread' })).statusCode,
+    ).toBe(403);
+    const done = await meera.patch(`/api/v1/tasks/${t.id}`, { version: 1, status: 'done' });
+    expect(done.json()).toMatchObject({ status: 'done', version: 2 });
+    const activity = (await ravi.get(`/api/v1/tasks/${t.id}/activity`)).json();
+    expect(activity.at(-1)).toMatchObject({ type: 'status_changed' });
+    expect(JSON.stringify(activity.at(-1))).toContain('Meera');
+  });
+
   it('views and filters: mine, all, assigned by me, per group, assignee', async () => {
     const { asha, ravi, g, ids } = await family();
     await create(asha, { title: 'Personal' });

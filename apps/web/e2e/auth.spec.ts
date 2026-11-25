@@ -27,6 +27,8 @@ test('sign-up by phone with SMS OTP', async ({ page }) => {
   await page.getByRole('checkbox').check();
   await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page).toHaveURL(/\/verify/);
+  // The email or phone number never goes in the address (history, error reports, analytics).
+  expect(decodeURIComponent(page.url())).not.toMatch(/target=|@|\+91/);
   await expectAccessible(page);
   await page.getByLabel('6-digit code').fill(await otpFor(phone));
   await expect(page).toHaveURL(/\/today/);
@@ -55,6 +57,7 @@ test('forgot password by email, then log in with the new one', async ({ page }) 
   // The sign-up code was sent moments ago; wait out nothing — reset uses its own code type.
   await page.getByRole('button', { name: 'Send code' }).click();
   await expect(page).toHaveURL(/\/reset/);
+  expect(decodeURIComponent(page.url())).not.toMatch(/target=|@|\+91/);
   const code = await otpFor(email);
   await page.getByLabel('6-digit code').fill(code);
   await page.getByLabel('New password', { exact: true }).fill('tiger-lotus-cloud-77');

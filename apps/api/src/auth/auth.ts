@@ -114,6 +114,38 @@ export function createAuth(deps: AuthDeps) {
     };
   };
 
+  /** Tell the owner their account was locked by wrong passwords, and how to get back in. */
+  async function notifyLockout(
+    user: { email: string; emailVerified: boolean; locale: string | null },
+    acceptLanguage?: string,
+  ) {
+    if (!user.emailVerified || isPlaceholderEmail(user.email)) return;
+    const locale =
+      user.locale && isLocale(user.locale)
+        ? user.locale
+        : await localeForEmail(user.email, acceptLanguage);
+    try {
+      await email.send({
+        to: user.email,
+        purpose: 'lockout',
+        subject: translate(locale, 'email.lockout.subject'),
+        text: translate(locale, 'email.lockout.text', {
+          minutes: LOGIN_LOCKOUT.lockMinutes,
+          url: `${config.APP_ORIGIN}/forgot`,
+        }),
+      });
+    } catch (err) {
+      log.warn({ err }, 'lockout email failed');
+    }
+  }
+
+  // Failed sign-ins, counted in Redis: per account + network, and per account overall.
+  const failKey = (userId: string, ip: string | null) =>
+    `signin:fail:${userId}:${crypto.hashIp(ip) ?? 'unknown'}`;
+  const ipLockKey = (userId: string, ip: string | null) =>
+    `signin:lock:${userId}:${crypto.hashIp(ip) ?? 'unknown'}`;
+  const accountFailKey = (userId: string) => `signin:fail:${userId}:all`;
+
   async function localeForEmail(addr: string, acceptLanguage?: string): Promise<Locale> {
     const row = await db.query.users.findFirst({
       where: eq(users.email, addr.toLowerCase()),
@@ -511,8 +543,13 @@ export function createAuth(deps: AuthDeps) {
         if (SIGN_IN_PATHS.has(ctx.path)) {
           const user = await findUserForSignIn(body);
           if (!user) return;
-          if (user.lockedUntil && user.lockedUntil > new Date()) {
-            const retryAfter = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 1000);
+          const ipLockTtl = await redis.ttl(ipLockKey(user.id, reqMeta(ctx).ip));
+          const accountLockSeconds =
+            user.lockedUntil && user.lockedUntil > new Date()
+              ? Math.ceil((user.lockedUntil.getTime() - Date.now()) / 1000)
+              : 0;
+          const retryAfter = Math.max(ipLockTtl > 0 ? ipLockTtl : 0, accountLockSeconds);
+          if (retryAfter > 0) {
             throw apiError(
               'LOCKED',
               'ACCOUNT_LOCKED',
@@ -538,6 +575,7 @@ export function createAuth(deps: AuthDeps) {
           const user = await findUserForSignIn(body);
           if (!user) return;
           if (!failed) {
+            await redis.del(failKey(user.id, meta.ip));
             await db
               .update(users)
               .set({ failedLoginCount: 0, lockedUntil: null })
@@ -551,21 +589,48 @@ export function createAuth(deps: AuthDeps) {
           }
           const code = (returned as APIError).body?.code;
           if (code === 'INVALID_EMAIL_OR_PASSWORD' || code === 'INVALID_PHONE_NUMBER_OR_PASSWORD') {
-            const [row] = await db
+            await audit('login_failed', { actorUserId: user.id, ...meta });
+            const lockSeconds = LOGIN_LOCKOUT.lockMinutes * 60;
+            const fk = failKey(user.id, meta.ip);
+            const ak = accountFailKey(user.id);
+            const res = await redis
+              .multi()
+              .incr(fk)
+              .expire(fk, lockSeconds, 'NX')
+              .incr(ak)
+              .expire(ak, LOGIN_LOCKOUT.accountWindowMinutes * 60, 'NX')
+              .exec();
+            const fromHere = Number(res?.[0]?.[1] ?? 0);
+            const overall = Number(res?.[2]?.[1] ?? 0);
+            await db
               .update(users)
               .set({ failedLoginCount: sql`${users.failedLoginCount} + 1` })
-              .where(eq(users.id, user.id))
-              .returning({ count: users.failedLoginCount });
-            await audit('login_failed', { actorUserId: user.id, ...meta });
-            if (row && row.count >= LOGIN_LOCKOUT.maxFailures) {
+              .where(eq(users.id, user.id));
+            if (overall >= LOGIN_LOCKOUT.accountMaxFailures) {
+              // Attempts from many networks: lock the account itself and tell the owner.
+              await redis.del(ak);
               await db
                 .update(users)
                 .set({
-                  lockedUntil: new Date(Date.now() + LOGIN_LOCKOUT.lockMinutes * 60_000),
+                  lockedUntil: new Date(Date.now() + lockSeconds * 1000),
                   failedLoginCount: 0,
                 })
                 .where(eq(users.id, user.id));
-              await audit('lockout', { actorUserId: user.id, ...meta });
+              await audit('lockout', {
+                actorUserId: user.id,
+                metadata: { scope: 'account' },
+                ...meta,
+              });
+              await notifyLockout(user, meta.acceptLanguage);
+            } else if (fromHere >= LOGIN_LOCKOUT.maxFailures) {
+              // Only this network is paused; the owner can still sign in from their own.
+              await redis.del(fk);
+              await redis.set(ipLockKey(user.id, meta.ip), '1', 'EX', lockSeconds);
+              await audit('lockout', {
+                actorUserId: user.id,
+                metadata: { scope: 'network' },
+                ...meta,
+              });
             }
           }
           return;
@@ -602,6 +667,7 @@ export function createAuth(deps: AuthDeps) {
                 .update(users)
                 .set({ failedLoginCount: 0, lockedUntil: null })
                 .where(eq(users.id, user.id));
+              await redis.del(accountFailKey(user.id));
               await audit('password_reset', { actorUserId: user.id, ...meta });
             }
             break;

@@ -9,6 +9,10 @@
     "invite": {
       "subject": "{{inviter}} invited you to “{{group}}” on ToDo",
       "body": "{{inviter}} invited you to join the group “{{group}}” on ToDo, a shared task list.\n\nJoin here: {{link}}\n\nThis invite works once and expires in {{days}} days. If you don't know {{inviter}}, you can ignore this email."
+    },
+    "lockout": {
+      "subject": "Your ToDo account was locked",
+      "text": "Someone tried to sign in to your ToDo account with the wrong password many times, so we've locked it for {{minutes}} minutes.\n\nIf this was you, wait and try again. If it wasn't, reset your password now; that also unlocks the account straight away:\n{{url}}"
     }
   },
   "sms": {
@@ -477,19 +481,21 @@
     },
     "privacy": {
       "title": "Privacy policy",
-      "intro": "This policy explains what personal data ToDo collects, why, and the choices you have, in line with India's Digital Personal Data Protection Act, 2023.",
+      "intro": "This policy explains what personal data ToDo collects, why, who can see it, and the choices you have, in line with India's Digital Personal Data Protection Act, 2023.",
       "s1h": "What we collect",
-      "s1": "Your name, email and/or mobile number, password (stored only as a secure hash), profile photo, language, theme and time zone; the tasks you create; and security records such as sign-in times, device type and IP address.",
+      "s1": "Your name, email and/or mobile number, password (stored only as a secure hash), profile photo, language, theme and time zone. What you add: tasks, comments, voice recordings (voice tasks and voice replies), the groups you create or join, and invites you send (we keep the invited email or number only in a protected, coded form). Your notification settings and, if you turn on push notifications, the address your browser's push service gives us. Security records such as sign-in times, device type and IP address.",
       "s2h": "Why we use it",
-      "s2": "To run your account and show you your tasks, to send one-time codes, to keep the service secure, and to meet legal duties. We do not sell your data or use it for advertising.",
-      "s3h": "Who we share it with",
-      "s3": "Service providers that run ToDo for us (hosting, email and SMS delivery, file storage, error tracking), under contracts. Authorities, only when Indian law requires it.",
-      "s4h": "How long we keep it",
-      "s4": "While your account is open. When you delete something, it is hidden immediately and permanently deleted after 180 days. When you delete your account, your sign-up details are kept in encrypted form for 180 days, as the IT Rules require, then deleted.",
-      "s5h": "Your rights",
-      "s5": "You can see and correct your details in Settings, download your data, withdraw consent by deleting your account, and complain to our grievance officer or to the Data Protection Board of India.",
-      "s6h": "Security",
-      "s6": "Data is encrypted in transit, passwords are hashed with Argon2, and access to stored data is limited and logged."
+      "s2": "To run your account and show you your tasks; to share group tasks with the group; to send one-time codes, invites and the notifications you choose (in the app, by email or by push); to keep the service secure and handle reports of misuse; and to meet legal duties. We do not sell your data or use it for advertising.",
+      "s3h": "Who can see what",
+      "s3": "Your personal tasks are visible only to you. In a group, every member can see the group's tasks, comments and voice recordings, the activity on them, and the other members' names and photos. If you report something, the app's owner sees the reported content and your note; the person you reported is not told who you are.",
+      "s4h": "Who we share it with",
+      "s4": "Service providers that run ToDo for us (hosting, database, file storage, email and SMS delivery, error tracking), under contracts. Push notifications pass through your browser maker's push service (for example Google, Apple, Mozilla or Microsoft). Authorities, only when Indian law requires it.",
+      "s5h": "How long we keep it",
+      "s5": "While your account is open. Notifications are kept for 90 days. Recordings that were never attached to a task or reply are deleted after a day. When you delete something, it is hidden immediately and permanently deleted after 180 days. When you delete your account, your sign-up details are kept in encrypted form for 180 days, as the IT Rules require, then deleted; tasks you made in a group stay with the group without your name, and your comments and recordings are removed.",
+      "s6h": "Your rights",
+      "s6": "You can see and correct your details in Settings, download your data (including your voice recordings), turn notifications off, withdraw consent by deleting your account, and complain to our grievance officer or to the Data Protection Board of India.",
+      "s7h": "Security",
+      "s7": "Data is encrypted in transit, passwords are hashed with Argon2, recordings and photos are served only through short-lived private links, and access to stored data is limited and logged."
     },
     "grievance": {
       "title": "Grievance contact",

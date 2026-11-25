@@ -6,6 +6,7 @@ import {
   client,
   latestOtp,
   outboxCount,
+  outboxMessages,
   signUpWithEmail,
   signUpWithPhone,
   skipOtpCooldown,
@@ -213,25 +214,72 @@ describe('phone sign-up', () => {
 });
 
 describe('sign-in, lockout and sessions', () => {
-  it('locks the account after 10 wrong passwords and records it in the audit log', async () => {
+  it('10 wrong passwords from one network pause sign-in there only', async () => {
     await signUpWithEmail(ctx);
+    const attacker = client(ctx); // one IP
     for (let i = 0; i < 10; i++) {
-      // Different IPs so the per-IP limit does not kick in first.
-      const r = await client(ctx).post('/api/auth/sign-in/email', {
+      const r = await attacker.post('/api/auth/sign-in/email', {
         email: 'asha@example.com',
         password: `wrong-${i}-password`,
       });
       expect(r.json().error.code).toBe('invalid_credentials');
+    }
+    const locked = await attacker.post('/api/auth/sign-in/email', {
+      email: 'asha@example.com',
+      password: STRONG_PASSWORD,
+    });
+    // Refused (the per-network rate limit may answer first), and paused there for 15 minutes.
+    expect([423, 429]).toContain(locked.statusCode);
+    const lockKeys = await ctx.deps.redis.keys('signin:lock:*');
+    expect(lockKeys).toHaveLength(1);
+    expect(await ctx.deps.redis.ttl(lockKeys[0]!)).toBeGreaterThan(14 * 60);
+    // The owner, on another network, still gets in.
+    const owner = await client(ctx).post('/api/auth/sign-in/email', {
+      email: 'asha@example.com',
+      password: STRONG_PASSWORD,
+    });
+    expect(owner.statusCode).toBe(200);
+    const actions = (await ctx.deps.db.query.auditLogs.findMany()).map((a) => a.action);
+    expect(actions).toContain('lockout');
+    expect(actions.filter((a) => a === 'login_failed')).toHaveLength(10);
+  });
+
+  it('wrong passwords from many networks lock the account, email the owner, and a reset unlocks it', async () => {
+    await signUpWithEmail(ctx);
+    for (let i = 0; i < 30; i++) {
+      await client(ctx).post('/api/auth/sign-in/email', {
+        email: 'asha@example.com',
+        password: `wrong-${i}-password`,
+      });
     }
     const locked = await client(ctx).post('/api/auth/sign-in/email', {
       email: 'asha@example.com',
       password: STRONG_PASSWORD,
     });
     expect(locked.statusCode).toBe(423);
-    expect(locked.json().error.code).toBe('account_locked');
-    const actions = (await ctx.deps.db.query.auditLogs.findMany()).map((a) => a.action);
-    expect(actions).toContain('lockout');
-    expect(actions.filter((a) => a === 'login_failed')).toHaveLength(10);
+    const mail = (await outboxMessages(ctx)).find(
+      (m) => m.subject === 'Your ToDo account was locked',
+    );
+    expect(mail?.to).toBe('asha@example.com');
+    expect(mail?.text).toContain('/forgot');
+
+    const c = client(ctx);
+    await c.post('/api/auth/email-otp/send-verification-otp', {
+      email: 'asha@example.com',
+      type: 'forget-password',
+    });
+    const otp = await latestOtp(ctx, 'asha@example.com');
+    const reset = await c.post('/api/auth/email-otp/reset-password', {
+      email: 'asha@example.com',
+      otp,
+      password: 'a-brand-new-password-42',
+    });
+    expect(reset.statusCode).toBe(200);
+    const after = await client(ctx).post('/api/auth/sign-in/email', {
+      email: 'asha@example.com',
+      password: 'a-brand-new-password-42',
+    });
+    expect(after.statusCode).toBe(200);
   });
 
   it('limits sign-in attempts per IP', async () => {
